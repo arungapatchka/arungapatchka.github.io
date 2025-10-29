@@ -9,8 +9,8 @@ paperurl: 'https://ideah.pubpub.org/pub/7yvuobes/release/1'
 link: 'https://ideah.pubpub.org/pub/7yvuobes/release/1'
 citation: 'Jacob, A. (2020). Punching Holes in the International Busa Machine Narrative. IDEAH. https://doi.org/10.21428/f1f23564.d7d097c2.'
 ---
-This paper is offers a counter-hegemonic cultural memory and media archeology of punch-card technologies.
+<!-- This paper is offers a counter-hegemonic cultural memory and media archeology of punch-card technologies.
 
 [Download paper here](https://ideah.pubpub.org/pub/7yvuobes/release/1)
 
-Recommended citation: Jacob, A. (2020). Punching Holes in the International Busa Machine Narrative. IDEAH. 1(1). https://doi.org/10.21428/f1f23564.d7d097c2.
+Recommended citation: Jacob, A. (2020). Punching Holes in the International Busa Machine Narrative. IDEAH. 1(1). https://doi.org/10.21428/f1f23564.d7d097c2. -->
