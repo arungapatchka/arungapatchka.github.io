@@ -22,7 +22,7 @@ My work draws on critical media studies, media genealogy, and media archaeology.
 
 ## Teaching
 
-I teach at the University of Toronto (St. George and Mississauga) and the University of Alberta. I have also taught at McMaster University, Niagara College, and Mohawk College. I design courses and workshops on technology, information, and society, and on media archaeology, data practices, and anti-colonial approaches to digital humanities.
+I have taught undergraduate courses at the University of Toronto (St. George and Mississauga) and graduate courses at the University of Alberta and McMaster University. I have also taught courses at Niagara College and Mohawk College. I design courses and workshops on technology, information, and society, as well as media archaeology, data practices, and anti-colonial approaches to digital humanities.
 
 ## Recent Highlights
 
