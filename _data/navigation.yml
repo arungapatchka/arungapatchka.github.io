@@ -13,7 +13,7 @@ main:
     url: /portfolio/
         
   - title: "📝 Service & Leadership"
-    url: /year-archive/
+    url: /service/
     
   - title: "📜 CV"
     url: /cv/
