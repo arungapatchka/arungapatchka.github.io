@@ -1,10 +1,10 @@
 ---
-layout: talk
-title: "Paper Rings: Interrogating The Cultural Techniques Of Transformative Agreements (Tas) Via Research Information Management Systems"
-date: 2025-10-15
-venue: "AoIR2025 Niterói"
-location: "Rio de Janeiro, Brazil"
-type: "Conference Paper"
+title: 'Paper Rings: Interrogating the Cultural Techniques of Transformative Agreements (TAs) via Research Information Management Systems'
 collection: talks
+type: 'Conference paper'
+permalink: /talks/2025-10-15-paper-rings-aoir
+venue: 'AoIR 2025, panel “Ruptures in the Library: The neoliberal hijacking of Open Access”'
+date: 2025-10-15
+location: 'Niterói, Rio de Janeiro, Brazil'
 ---
-Presented on the panel "Ruptures in the Library: The neoliberal hijacking of Open Access" alongside co-panellists Reece Steinberg, Natalie Pang, and Elisha Lim[cite: 33].
+Co-panellists: Reece Steinberg, Natalie Pang, and Elisha Lim. Conference dates: October 15–18, 2025.
