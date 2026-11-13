@@ -5,9 +5,8 @@ permalink: /cv/
 author_profile: true
 ---
 
-[Download the CV (PDF)](/files/Jacob_A_CV_November_2026.pdf){: .btn .btn--primary}
+[Download the CV (PDF)](/files/Jacob_A_CV_November_2026.pdf)
 
-Place `Jacob_A_CV_November_2026.pdf` in the `/files/` directory.
 
 ## Education
 
