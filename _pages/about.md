@@ -32,4 +32,6 @@ I have taught undergraduate courses at the University of Toronto (St. George and
 - **2026, book chapter:** "HealthcAIre," in *The Need to Rename Tech* (Springer Nature), with Christina Boyles.
 - **2026, book chapter:** "Resisting BYOI (Bring Your Own Infrastructure) in Digital Humanities Learning Spaces," in *Critical Infrastructure Studies & Digital Humanities* (University of Minnesota Press).
 
+Explore my [collaboration network](/network)
+
 See [Publications](/publications/), [Talks](/talks/), [Teaching](/teaching/), [Service](/service/), or the full [CV](/cv/).
