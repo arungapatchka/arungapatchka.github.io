@@ -11,6 +11,9 @@ main:
         
   - title: "📝 Service & Leadership"
     url: /service/
+
+  - title: "🤝 Collaboration Network"
+    url: /network/
     
   - title: "📜 CV"
     url: /cv/
