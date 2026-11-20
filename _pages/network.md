@@ -17,6 +17,6 @@ This interactive graph maps the co-authors and co-presenters named in my [CV](/c
   </iframe>
 </div>
 
-[Open the graph in its own window](/files/arun_jacob_coauthor_network_graph.html){: .btn .btn--primary target="_blank" rel="noopener"}
+[Open the graph in its own window](/files/arun_jacob_co_author_network_graph.html){: .btn .btn--primary target="_blank" rel="noopener"}
 
 <noscript>The network graph requires JavaScript. See the <a href="/publications/">Publications</a> and <a href="/talks/">Talks</a> pages for the full list of collaborators.</noscript>
