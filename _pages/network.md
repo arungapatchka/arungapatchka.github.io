@@ -10,7 +10,7 @@ This interactive graph maps the co-authors and co-presenters named in my [CV](/c
 
 <div class="network-embed">
   <iframe
-    src="{{ '/files/arun_jacob_co_author_network.html' | relative_url }}"
+    src="{{ '/files/arun_jacob_co_author_network_graph.html' | relative_url }}"
     title="Interactive network graph of Arun Jacob's co-authors and co-presenters"
     loading="lazy"
     style="width:100%; height:80vh; min-height:600px; border:1px solid #ddd;">
