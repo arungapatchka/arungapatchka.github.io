@@ -1,0 +1,4134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arun Jacob — Interactive Co-Author Network Graph</title>
+  <style>
+    /* =========================================================================
+       DESIGN TOKENS — Academic Editorial Light Theme
+       ========================================================================= */
+    :root {
+      --bg-canvas: #F8FAFC;
+      --bg-surface: #FFFFFF;
+      --bg-subtle: #F1F5F9;
+      --bg-hover: #E2E8F0;
+      --border: #E2E8F0;
+      --border-strong: #CBD5E1;
+
+      --text-primary: #0F172A;
+      --text-secondary: #475569;
+      --text-muted: #64748B;
+
+      --hub-color: #0F172A;
+      --cat-journal: #4F46E5;
+      --cat-journal-bg: #EEF2FF;
+      --cat-chapter: #0D9488;
+      --cat-chapter-bg: #F0FDFA;
+      --cat-forthcoming: #D97706;
+      --cat-forthcoming-bg: #FFFBEB;
+      --cat-nonrefereed: #E11D48;
+      --cat-nonrefereed-bg: #FFF1F2;
+      --cat-presentation: #7C3AED;
+      --cat-presentation-bg: #F5F3FF;
+      --cat-workshop: #059669;
+      --cat-workshop-bg: #ECFDF5;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-pill: 9999px;
+
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+      --shadow-lg: 0 10px 28px rgba(15, 23, 42, 0.12);
+
+      --header-h: 60px;
+      --sidebar-w: 340px;
+
+      --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-serif: "Georgia", "Cambria", "Times New Roman", serif;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* =========================================================================
+       LAYOUT SHELL
+       ========================================================================= */
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Top Header Bar */
+    .top-header {
+      height: var(--header-h);
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      z-index: 30;
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .sidebar-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .sidebar-toggle-btn:hover {
+      background: var(--bg-subtle);
+      border-color: var(--border-strong);
+    }
+
+    .brand-title-wrap {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-badge {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: var(--bg-subtle);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+      flex-shrink: 0;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .header-stats {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border);
+      padding: 5px 11px;
+      border-radius: var(--radius-pill);
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .stat-pill strong {
+      color: var(--text-primary);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Main Workspace */
+    .workspace {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* =========================================================================
+       INSPECTOR SIDEBAR (340px wide, collapsible)
+       ========================================================================= */
+    .sidebar {
+      width: var(--sidebar-w);
+      max-width: 90vw;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      z-index: 25;
+      transition: margin-left 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+      overflow: hidden;
+    }
+
+    .sidebar.collapsed {
+      margin-left: calc(var(--sidebar-w) * -1);
+    }
+
+    .sidebar-controls {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface);
+      flex-shrink: 0;
+    }
+
+    /* Collapsible Filter Panel Header inside Sidebar */
+    .controls-accordion-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      cursor: pointer;
+      user-select: none;
+      padding: 4px 2px;
+      border-radius: var(--radius-sm);
+    }
+
+    .controls-accordion-header:hover {
+      background: var(--bg-canvas);
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    .accordion-chevron {
+      transition: transform 0.2s ease;
+      color: var(--text-muted);
+    }
+
+    .controls-accordion-body {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .controls-accordion-body.hidden {
+      display: none;
+    }
+
+    /* Search Input */
+    .search-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 8px 30px 8px 32px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      background: var(--bg-canvas);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .search-input:focus {
+      background: var(--bg-surface);
+      border-color: var(--cat-journal);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+    }
+
+    .search-clear {
+      position: absolute;
+      right: 8px;
+      width: 20px;
+      height: 20px;
+      border: none;
+      background: var(--bg-hover);
+      color: var(--text-secondary);
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .search-clear.visible {
+      display: inline-flex;
+    }
+
+    .search-results-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      max-height: 230px;
+      overflow-y: auto;
+      z-index: 40;
+      display: none;
+    }
+
+    .search-results-dropdown.open {
+      display: block;
+    }
+
+    .search-result-item {
+      padding: 8px 10px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--bg-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12.5px;
+    }
+
+    .search-result-item:last-child {
+      border-bottom: none;
+    }
+
+    .search-result-item:hover {
+      background: var(--bg-subtle);
+    }
+
+    .search-result-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* Quick Preset Buttons */
+    .preset-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .preset-btn {
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: center;
+    }
+
+    .preset-btn:hover {
+      background: var(--bg-subtle);
+      color: var(--text-primary);
+    }
+
+    .preset-btn.active {
+      background: var(--text-primary);
+      border-color: var(--text-primary);
+      color: #FFFFFF;
+    }
+
+    /* Category Filter Pills */
+    .cat-group-title {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .cat-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .cat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border);
+      background: var(--bg-canvas);
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .cat-pill:hover {
+      border-color: var(--border-strong);
+    }
+
+    .cat-pill .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      opacity: 0.4;
+      transition: opacity 0.15s ease;
+    }
+
+    .cat-pill .count {
+      font-size: 10.5px;
+      opacity: 0.75;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cat-pill.active {
+      color: var(--text-primary);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .cat-pill.active .dot {
+      opacity: 1;
+    }
+
+    /* Year Filter */
+    .year-filter-row {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px 10px;
+    }
+
+    .year-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .year-badge {
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      padding: 1px 7px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+    }
+
+    .year-sliders {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .year-select-wrap {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .year-select {
+      flex: 1;
+      padding: 4px 6px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Display Toggles */
+    .toggles-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding: 2px 0;
+    }
+
+    .toggle-row:hover {
+      color: var(--text-primary);
+    }
+
+    .switch {
+      position: relative;
+      width: 34px;
+      height: 19px;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider-track {
+      position: absolute;
+      inset: 0;
+      background-color: var(--border-strong);
+      border-radius: var(--radius-pill);
+      transition: background-color 0.18s ease;
+    }
+
+    .slider-track::before {
+      content: "";
+      position: absolute;
+      width: 13px;
+      height: 13px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #FFFFFF;
+      border-radius: 50%;
+      transition: transform 0.18s ease;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+
+    .switch input:checked + .slider-track {
+      background-color: var(--text-primary);
+    }
+
+    .switch input:checked + .slider-track::before {
+      transform: translateX(15px);
+    }
+
+    /* Sidebar Scrollable Body (Dashboard or Inspector) */
+    .sidebar-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 14px 20px;
+      background: var(--bg-canvas);
+    }
+
+    .sidebar-body::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .sidebar-body::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: var(--radius-pill);
+    }
+
+    /* Dashboard Tabs */
+    .sub-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--bg-subtle);
+      padding: 3px;
+      border-radius: var(--radius-md);
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .sub-tab-btn {
+      padding: 6px 8px;
+      border: none;
+      background: transparent;
+      border-radius: 7px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .sub-tab-btn.active {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Compact Metric Cards */
+    .mini-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-bottom: 12px;
+    }
+
+    .mini-metric-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px 6px;
+      text-align: center;
+    }
+
+    .mini-metric-val {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mini-metric-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 3px;
+      font-weight: 600;
+    }
+
+    /* Leaderboard List */
+    .leaderboard-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .leader-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+    }
+
+    .leader-item:hover {
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow-sm);
+      transform: translateY(-1px);
+    }
+
+    .leader-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .leader-name-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .leader-rank {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      width: 18px;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    .leader-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .leader-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .leader-count {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      background: var(--bg-subtle);
+      padding: 1px 7px;
+      border-radius: var(--radius-pill);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+
+    .leader-bar-bg {
+      height: 4px;
+      background: var(--bg-subtle);
+      border-radius: var(--radius-pill);
+      overflow: hidden;
+    }
+
+    .leader-bar-fill {
+      height: 100%;
+      border-radius: var(--radius-pill);
+      transition: width 0.25s ease;
+    }
+
+    /* Inspector Detail View (Node / Edge) */
+    .inspector-back-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .back-btn:hover {
+      background: var(--bg-subtle);
+      color: var(--text-primary);
+    }
+
+    .profile-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .profile-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+      margin-bottom: 10px;
+    }
+
+    .profile-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      color: #FFFFFF;
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      letter-spacing: 0.02em;
+    }
+
+    .profile-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+    }
+
+    .profile-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .cat-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+      border: 1px solid transparent;
+    }
+
+    .collab-chips-section {
+      margin-bottom: 12px;
+    }
+
+    .collab-chips-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .collab-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .collab-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px;
+      border-radius: var(--radius-pill);
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .collab-chip:hover {
+      border-color: var(--text-primary);
+      background: var(--bg-subtle);
+    }
+
+    .collab-chip .chip-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    /* Work Cards */
+    .works-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .work-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--cat-journal);
+      border-radius: var(--radius-md);
+      padding: 10px 11px;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+
+    .work-card.clickable {
+      cursor: pointer;
+    }
+
+    .work-card.clickable:hover {
+      box-shadow: var(--shadow-sm);
+    }
+
+    .work-card.highlighted-work {
+      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.25);
+    }
+
+    .work-meta-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 5px;
+    }
+
+    .work-year {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .work-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.35;
+      margin-bottom: 4px;
+    }
+
+    .work-venue {
+      font-size: 11.5px;
+      font-style: italic;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .work-authors {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .work-author-link {
+      color: var(--text-secondary);
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .work-author-link:hover {
+      color: var(--cat-journal);
+      text-decoration: underline;
+    }
+
+    /* Edge Inspector Header */
+    .edge-pair-card {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .edge-pair-nodes {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      background: var(--bg-canvas);
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+    }
+
+    .edge-node-btn {
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+      cursor: pointer;
+      text-align: left;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .edge-node-btn:hover {
+      background: var(--bg-hover);
+      color: var(--cat-journal);
+    }
+
+    .edge-arrow {
+      color: var(--text-muted);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* =========================================================================
+       MAIN SVG GRAPH CANVAS
+       ========================================================================= */
+    .canvas-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background-color: var(--bg-canvas);
+      background-image: radial-gradient(#CBD5E1 1px, transparent 1px);
+      background-size: 24px 24px;
+      touch-action: none;
+    }
+
+    #network-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+      user-select: none;
+    }
+
+    #network-svg.panning {
+      cursor: grabbing;
+    }
+
+    /* SVG Elements Styling */
+    .edge-line {
+      transition: stroke-opacity 0.18s ease, stroke-width 0.18s ease;
+      pointer-events: none;
+    }
+
+    .edge-hit {
+      stroke: transparent;
+      stroke-width: 14px;
+      cursor: pointer;
+    }
+
+    .node-group {
+      cursor: pointer;
+      transition: opacity 0.18s ease;
+    }
+
+    .node-group.dragging {
+      cursor: grabbing;
+    }
+
+    .node-circle {
+      transition: r 0.15s ease, stroke-width 0.15s ease;
+    }
+
+    .node-label-bg {
+      fill: rgba(255, 255, 255, 0.9);
+      stroke: rgba(226, 232, 240, 0.9);
+      stroke-width: 0.75px;
+      pointer-events: none;
+    }
+
+    .node-label-text {
+      font-family: var(--font-sans);
+      fill: var(--text-primary);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .dimmed {
+      opacity: 0.13 !important;
+    }
+
+    .edge-selected {
+      stroke: #0F172A !important;
+      stroke-opacity: 1 !important;
+    }
+
+    /* Floating Canvas Controls (Top Right) */
+    .canvas-toolbar {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      padding: 4px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-md);
+      z-index: 15;
+    }
+
+    .tool-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      height: 32px;
+      min-width: 32px;
+      padding: 0 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      border-radius: 7px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .tool-btn:hover {
+      background: var(--bg-subtle);
+      color: var(--text-primary);
+    }
+
+    .tool-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border);
+      margin: 0 2px;
+    }
+
+    /* Active Highlight Banner (Top Center of Canvas) */
+    .highlight-banner {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text-primary);
+      color: #FFFFFF;
+      padding: 7px 12px;
+      border-radius: var(--radius-pill);
+      box-shadow: var(--shadow-lg);
+      font-size: 12px;
+      font-weight: 500;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      z-index: 16;
+      max-width: min(500px, calc(100% - 28px));
+    }
+
+    .highlight-banner.visible {
+      display: flex;
+    }
+
+    .highlight-banner-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .highlight-clear-btn {
+      border: none;
+      background: rgba(255, 255, 255, 0.2);
+      color: #FFFFFF;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .highlight-clear-btn:hover {
+      background: rgba(255, 255, 255, 0.32);
+    }
+
+    /* Floating Legend (Bottom Left) */
+    .floating-legend {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      box-shadow: var(--shadow-md);
+      z-index: 15;
+      max-width: 280px;
+      font-size: 11.5px;
+    }
+
+    .legend-title {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .legend-swatch {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legend-footer {
+      margin-top: 7px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+      font-size: 10.5px;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    /* Floating Tooltip */
+    .graph-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(15, 23, 42, 0.95);
+      color: #FFFFFF;
+      padding: 8px 11px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      font-size: 12px;
+      z-index: 50;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.12s ease, transform 0.12s ease;
+      max-width: 250px;
+    }
+
+    .graph-tooltip.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .tooltip-name {
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+
+    .tooltip-meta {
+      font-size: 11px;
+      color: #CBD5E1;
+    }
+
+    .tooltip-hint {
+      font-size: 10px;
+      color: #94A3B8;
+      margin-top: 4px;
+    }
+
+    /* Empty State Overlay */
+    .empty-canvas-state {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+      text-align: center;
+      padding: 24px;
+      pointer-events: none;
+    }
+
+    .empty-canvas-state.visible {
+      display: flex;
+    }
+
+    .empty-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      box-shadow: var(--shadow-md);
+      pointer-events: auto;
+      max-width: 340px;
+    }
+
+    /* Toast Notification (replaces alert) */
+    .toast {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      background: var(--text-primary);
+      color: #FFFFFF;
+      padding: 9px 14px;
+      border-radius: var(--radius-md);
+      font-size: 12.5px;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      z-index: 60;
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* =========================================================================
+       RESPONSIVE BREAKPOINTS
+       ========================================================================= */
+    @media (max-width: 900px) {
+      .header-stats {
+        display: none;
+      }
+
+      .sidebar {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        box-shadow: var(--shadow-lg);
+        margin-left: 0 !important;
+        transform: translateX(0);
+      }
+
+      .sidebar.collapsed {
+        transform: translateX(-100%);
+      }
+
+      .floating-legend {
+        max-width: 220px;
+        padding: 8px 10px;
+      }
+
+      .legend-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .tool-btn .btn-label {
+        display: none;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .brand-badge,
+      .brand-subtitle {
+        display: none;
+      }
+
+      .floating-legend {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- TOP HEADER BAR -->
+    <header class="top-header">
+      <div class="header-left">
+        <button id="btn-toggle-sidebar" class="sidebar-toggle-btn" title="Toggle Inspector Sidebar" aria-label="Toggle Inspector Sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+          </svg>
+        </button>
+        <div class="brand-title-wrap">
+          <div class="brand-title">
+            <span>Arun Jacob — Co-Author Network</span>
+            <span class="brand-badge">Nov 2026 CV</span>
+          </div>
+          <div class="brand-subtitle">Ph.D., Information Studies, University of Toronto · Interactive Collaboration Graph</div>
+        </div>
+      </div>
+
+      <div class="header-stats">
+        <div class="stat-pill"><strong id="hdr-collab-count">38</strong> Collaborators</div>
+        <div class="stat-pill"><strong id="hdr-works-count">24</strong> Shared Works</div>
+        <div class="stat-pill"><strong id="hdr-edges-count">0</strong> Connections</div>
+      </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="workspace">
+      <!-- COLLAPSIBLE INSPECTOR SIDEBAR -->
+      <aside id="sidebar" class="sidebar">
+        <!-- Controls Header -->
+        <div class="sidebar-controls">
+          <!-- Search Box -->
+          <div class="search-box">
+            <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input id="search-input" class="search-input" type="text" placeholder="Search co-authors, titles, venues..." autocomplete="off" />
+            <button id="search-clear" class="search-clear" title="Clear search" aria-label="Clear search">&times;</button>
+            <div id="search-dropdown" class="search-results-dropdown"></div>
+          </div>
+
+          <!-- Accordion Toggle for Filters -->
+          <div id="filters-toggle" class="controls-accordion-header" role="button" tabindex="0">
+            <span class="section-label">Filters &amp; Display Options</span>
+            <svg id="filters-chevron" class="accordion-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="18 15 12 9 6 15"></polyline>
+            </svg>
+          </div>
+
+          <div id="filters-body" class="controls-accordion-body">
+            <!-- Quick Preset Buttons -->
+            <div class="preset-row">
+              <button id="preset-coauthors" class="preset-btn active" type="button">Co-Authors Only (38)</button>
+              <button id="preset-all" class="preset-btn" type="button">All CV Collaborators (54)</button>
+            </div>
+
+            <!-- Primary Publication Categories -->
+            <div>
+              <div class="cat-group-title">
+                <span>Publication Co-Authors</span>
+              </div>
+              <div id="cat-pills-primary" class="cat-pills"></div>
+            </div>
+
+            <!-- Optional CV Collaborator Categories -->
+            <div>
+              <div class="cat-group-title">
+                <span>+ Optional CV Collaborators</span>
+              </div>
+              <div id="cat-pills-optional" class="cat-pills"></div>
+            </div>
+
+            <!-- Year Range Filter -->
+            <div class="year-filter-row">
+              <div class="year-header">
+                <span>Year Range</span>
+                <span id="year-range-badge" class="year-badge">2020 – 2026</span>
+              </div>
+              <div class="year-sliders">
+                <label class="year-select-wrap">
+                  <span>From</span>
+                  <select id="year-min" class="year-select"></select>
+                </label>
+                <label class="year-select-wrap">
+                  <span>To</span>
+                  <select id="year-max" class="year-select"></select>
+                </label>
+              </div>
+            </div>
+
+            <!-- Graph Display Toggles -->
+            <div class="toggles-grid">
+              <label class="toggle-row">
+                <span>Show Arun Jacob (Hub)</span>
+                <span class="switch">
+                  <input type="checkbox" id="toggle-hub" checked />
+                  <span class="slider-track"></span>
+                </span>
+              </label>
+              <label class="toggle-row">
+                <span>Show Co-Author-to-Co-Author Links</span>
+                <span class="switch">
+                  <input type="checkbox" id="toggle-coauthor-links" checked />
+                  <span class="slider-track"></span>
+                </span>
+              </label>
+              <label class="toggle-row">
+                <span>Show All Labels</span>
+                <span class="switch">
+                  <input type="checkbox" id="toggle-labels" checked />
+                  <span class="slider-track"></span>
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scrollable Dashboard / Node Inspector / Edge Inspector -->
+        <div id="sidebar-body" class="sidebar-body"></div>
+      </aside>
+
+      <!-- MAIN INTERACTIVE SVG GRAPH CANVAS -->
+      <main id="canvas-area" class="canvas-area">
+        <!-- Active Highlight Banner (for Search or Clicked Work) -->
+        <div id="highlight-banner" class="highlight-banner">
+          <span id="highlight-banner-text" class="highlight-banner-text"></span>
+          <button id="highlight-clear-btn" class="highlight-clear-btn" type="button">Clear</button>
+        </div>
+
+        <!-- Floating Canvas Toolbar -->
+        <div class="canvas-toolbar" role="toolbar" aria-label="Graph Controls">
+          <button id="btn-zoom-in" class="tool-btn" title="Zoom In (+)" aria-label="Zoom In">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <button id="btn-zoom-out" class="tool-btn" title="Zoom Out (-)" aria-label="Zoom Out">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <button id="btn-fit" class="tool-btn" title="Fit Graph to Screen" aria-label="Fit to Screen">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+            <span class="btn-label">Fit</span>
+          </button>
+          <div class="tool-divider"></div>
+          <button id="btn-relayout" class="tool-btn" title="Re-run Cluster Force Layout" aria-label="Re-layout">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            <span class="btn-label">Re-layout</span>
+          </button>
+          <button id="btn-export-svg" class="tool-btn" title="Download SVG Snapshot" aria-label="Export SVG">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            <span class="btn-label">Export SVG</span>
+          </button>
+        </div>
+
+        <!-- SVG Element -->
+        <svg id="network-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Interactive co-author network graph for Arun Jacob">
+          <g id="viewport">
+            <g id="edges-layer"></g>
+            <g id="nodes-layer"></g>
+            <g id="labels-layer"></g>
+          </g>
+        </svg>
+
+        <!-- Empty State Overlay -->
+        <div id="empty-state" class="empty-canvas-state">
+          <div class="empty-card">
+            <div style="font-weight:700; font-size:15px; margin-bottom:6px;">No matching collaborations</div>
+            <div style="font-size:12.5px; color:var(--text-secondary); margin-bottom:12px;">
+              Adjust your category filters or year range to display co-authors in the network.
+            </div>
+            <button id="btn-reset-filters" class="preset-btn active" type="button" style="width:100%; padding:8px;">
+              Reset to Default Co-Authors
+            </button>
+          </div>
+        </div>
+
+        <!-- Floating Legend -->
+        <div class="floating-legend" aria-label="Graph Legend">
+          <div class="legend-title">
+            <span>Node Primary Category</span>
+          </div>
+          <div class="legend-grid">
+            <div class="legend-item"><span class="legend-swatch" style="background:#0F172A;"></span>Arun Jacob (Hub)</div>
+            <div class="legend-item"><span class="legend-swatch" style="background:#4F46E5;"></span>Refereed Journals</div>
+            <div class="legend-item"><span class="legend-swatch" style="background:#0D9488;"></span>Book Chapters</div>
+            <div class="legend-item"><span class="legend-swatch" style="background:#D97706;"></span>WIP / Forthcoming</div>
+            <div class="legend-item"><span class="legend-swatch" style="background:#E11D48;"></span>Non-Refereed Pubs</div>
+            <div class="legend-item"><span class="legend-swatch" style="background:#7C3AED;"></span>Papers &amp; Talks</div>
+            <div class="legend-item"><span class="legend-swatch" style="background:#059669;"></span>Workshops</div>
+          </div>
+          <div class="legend-footer">
+            <span><strong>Node size</strong> = shared works · <strong>Edge thickness</strong> = frequency</span>
+            <span>Drag node to pin · Double-click node to release/center</span>
+          </div>
+        </div>
+
+        <!-- Hover Tooltip -->
+        <div id="graph-tooltip" class="graph-tooltip"></div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast Feedback -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      /* =======================================================================
+         1. COMPLETE EMBEDDED DATASET — Arun Jacob November 2026 CV
+         ======================================================================= */
+      const CENTRAL_AUTHOR = "Arun Jacob";
+      const CENTRAL_BIO = "Ph.D., Information Studies, University of Toronto (2026)";
+      const CENTRAL_ORCID = "0000-0002-8446-099X";
+
+      const CATEGORIES = {
+        journal: {
+          id: "journal",
+          label: "Refereed Journals",
+          short: "Journal",
+          color: "#4F46E5",
+          bg: "#EEF2FF",
+          border: "#C7D2FE",
+          group: "primary",
+          defaultOn: true,
+          priority: 1
+        },
+        chapter: {
+          id: "chapter",
+          label: "Book Chapters",
+          short: "Chapter",
+          color: "#0D9488",
+          bg: "#F0FDFA",
+          border: "#99F6E4",
+          group: "primary",
+          defaultOn: true,
+          priority: 2
+        },
+        forthcoming: {
+          id: "forthcoming",
+          label: "WIP / Forthcoming",
+          short: "Forthcoming",
+          color: "#D97706",
+          bg: "#FFFBEB",
+          border: "#FDE68A",
+          group: "primary",
+          defaultOn: true,
+          priority: 3
+        },
+        nonrefereed: {
+          id: "nonrefereed",
+          label: "Non-Refereed Pubs",
+          short: "Non-Refereed",
+          color: "#E11D48",
+          bg: "#FFF1F2",
+          border: "#FECDD3",
+          group: "primary",
+          defaultOn: true,
+          priority: 4
+        },
+        presentation: {
+          id: "presentation",
+          label: "Papers & Talks",
+          short: "Presentation",
+          color: "#7C3AED",
+          bg: "#F5F3FF",
+          border: "#DDD6FE",
+          group: "optional",
+          defaultOn: false,
+          priority: 5
+        },
+        workshop: {
+          id: "workshop",
+          label: "Co-Taught Workshops",
+          short: "Workshop",
+          color: "#059669",
+          bg: "#ECFDF5",
+          border: "#A7F3D0",
+          group: "optional",
+          defaultOn: false,
+          priority: 6
+        }
+      };
+
+      const CATEGORY_ORDER = ["journal", "chapter", "forthcoming", "nonrefereed", "presentation", "workshop"];
+
+      /**
+       * Exact 53 collaborative works from Arun Jacob's November 2026 CV.
+       * `authors` lists co-authors excluding Arun Jacob (who is an author on every entry).
+       */
+      const WORKS = [
+        // [CATEGORY: "journal" — Refereed Journal Articles]
+        {
+          id: 1,
+          year: 2026,
+          category: "journal",
+          title: "Skimming off the top: associative searches, visual results and the end of reading",
+          venue: "Iowa Journal of Communication, 58(2), 53–72",
+          authors: ["Marc A. Ouellette"]
+        },
+        {
+          id: 2,
+          year: 2026,
+          category: "journal",
+          title: "Mil-Tech Oligarchy and the Security State",
+          venue: "Science as Culture, 1–16",
+          authors: ["Michael Richardson"]
+        },
+        {
+          id: 3,
+          year: 2025,
+          category: "journal",
+          title: "Bloody frontier politics: Menstrual equity, military inclusion, and the Canadian workplace",
+          venue: "Diversity & Inclusion Research, 2(3)",
+          authors: ["Danica Facca"]
+        },
+        {
+          id: 4,
+          year: 2025,
+          category: "journal",
+          title: "Forced reproduction: abortion access in a landscape of data violence",
+          venue: "Journal of Gender Studies, 34(8), 1–20",
+          authors: ["Rebecca Noone"]
+        },
+        {
+          id: 5,
+          year: 2024,
+          category: "journal",
+          title: "Bad Boundaries: Geofences and the Intimacies of Location Data",
+          venue: "TOPIA: Canadian Journal of Cultural Studies, Issue 48",
+          authors: ["Rebecca Noone"]
+        },
+        {
+          id: 6,
+          year: 2022,
+          category: "journal",
+          title: "Making the most of the 'crisortunity': Techno-fixes and precarity in a global pandemic",
+          venue: "IDEAH, 3(2)",
+          authors: ["Haley Bryant", "Nelanthi Hewa", "Camille Inston"]
+        },
+        {
+          id: 7,
+          year: 2021,
+          category: "journal",
+          title: "Transforming DH Pedagogy",
+          venue: "Digital Studies/Le champ numérique, 11(1), 1–43",
+          authors: ["Nadine Boulay", "Ashley Caranto Morford", "Kush Patel", "Kimberly O'Donnell"]
+        },
+
+        // [CATEGORY: "chapter" — Refereed Book Chapters]
+        {
+          id: 8,
+          year: 2026,
+          category: "chapter",
+          title: "Anti-colonial Threads: Twine as a Tool for Critiques and Pedagogies in Digital Humanities",
+          venue: "EnTwine (Amherst College Press)",
+          authors: ["Kush Patel", "Ashley Caranto Morford", "Sai Vidyasri Giridharan", "Shamanth Joshi", "Anna Maria Kalinowski", "Natalia Toronchuk", "Zeinab Farokhi"]
+        },
+        {
+          id: 9,
+          year: 2026,
+          category: "chapter",
+          title: "HealthcAIre (Healthcare)",
+          venue: "The Need to Rename Tech (Springer Nature)",
+          authors: ["Christina Boyles"]
+        },
+        {
+          id: 10,
+          year: 2026,
+          category: "chapter",
+          title: "Resisting BYOI (Bring Your Own Infrastructure) in Digital Humanities Learning Spaces",
+          venue: "Critical Infrastructure Studies & Digital Humanities (Univ. of Minnesota Press)",
+          authors: ["Kush Patel", "Ashley Caranto Morford"]
+        },
+        {
+          id: 11,
+          year: 2024,
+          category: "chapter",
+          title: "AKA WWJD?: Interrogating Gendered Ideologies and Urban Revanchism",
+          venue: "Diverging the Popular, Gender and Trauma AKA The Jessica Jones Anthology (Univ. of Calgary Press)",
+          authors: ["Elizabeth Di Emanuele"]
+        },
+        {
+          id: 12,
+          year: 2023,
+          category: "chapter",
+          title: "Operationalizing Surveillance Studies in the Digital Humanities",
+          venue: "Debates in the Digital Humanities 2023 (Univ. of Minnesota Press)",
+          authors: ["Christina Boyles", "Andrew Boyles Petersen"]
+        },
+        {
+          id: 13,
+          year: 2023,
+          category: "chapter",
+          title: "How We Learned to Stop SWAT-ing and Love the (Zoom-)Bomb: A (De)Predatory History of Disrupting the Livestream",
+          venue: "Real Life in Real Time (MIT Press)",
+          authors: ["Christine H. Tran"]
+        },
+        {
+          id: 14,
+          year: 2023,
+          category: "chapter",
+          title: "Workshops in Anti-Colonial Digital Humanities: Towards Building Relationships with Critical University and Community Movements",
+          venue: "Digital Humanities Workshops: Lessons Learned (Routledge)",
+          authors: ["Kush Patel", "Ashley Caranto Morford"]
+        },
+
+        // [CATEGORY: "forthcoming" — Work in Progress & Forthcoming]
+        {
+          id: 15,
+          year: 2026,
+          displayYear: "Forthcoming / WIP",
+          category: "forthcoming",
+          title: "The Spectacle is the Message: Mimetic Pleasure, the Ideological Trompe l'Œil, & the End of the Canadian Border",
+          venue: "Canadian Review of American Studies (Work in Progress)",
+          authors: ["Andrew Wilkin"]
+        },
+        {
+          id: 16,
+          year: 2026,
+          displayYear: "Forthcoming",
+          category: "forthcoming",
+          title: "Tabled for Discussion: 'Feminist Bricks' for Digital Pedagogy",
+          venue: "The De Gruyter Handbook of Feminist Digital Scholarship (Forthcoming)",
+          authors: ["Ashley Caranto Morford", "Kush Patel"]
+        },
+
+        // [CATEGORY: "nonrefereed" — Non-Refereed Publications]
+        {
+          id: 17,
+          year: 2026,
+          category: "nonrefereed",
+          title: "Ruptures in the Library: The Neoliberal Hijacking of Open Access",
+          venue: "AoIR Selected Papers of Internet Research",
+          authors: ["Reece Steinberg", "Natalie Pang", "Elisha Lim"]
+        },
+        {
+          id: 18,
+          year: 2024,
+          category: "nonrefereed",
+          title: "Global Digital Humanities Symposium. Unit II: Ethics, Legal and Moral Frameworks",
+          venue: "#dariahteach OER",
+          authors: ["Taylor Hughes-Barrow", "Viola Lasmana", "Kristen Mapes", "Kate Topham"]
+        },
+        {
+          id: 19,
+          year: 2024,
+          category: "nonrefereed",
+          title: "Anti-colonial Orientations for Digital Humanities Work: Pedagogy of the Digitally Oppressed Collective",
+          venue: "#dariahteach OER",
+          authors: ["Ashley Caranto Morford", "Kush Patel", "Felix Bui"]
+        },
+        {
+          id: 20,
+          year: 2023,
+          category: "nonrefereed",
+          title: "Perils Of Place: Geofences And Predatory Platform Intimacies",
+          venue: "AoIR Selected Papers of Internet Research",
+          authors: ["Rebecca Noone"]
+        },
+        {
+          id: 21,
+          year: 2022,
+          category: "nonrefereed",
+          title: "KMDI Technical Report: Academic TikTok",
+          venue: "Knowledge Media Design Institute, University of Toronto",
+          authors: ["Danica Facca", "Junoh Kimm", "J.P. King", "Mujgan Ozceylan", "Sara M. Grimes"]
+        },
+        {
+          id: 22,
+          year: 2021,
+          category: "nonrefereed",
+          title: "Gamer, Gambler, Trader, Troll: Dual Digital Discourse in the Post-MemeStocks Ledger",
+          venue: "Digital Research Ethics Collaboratory, Univ. of Toronto",
+          authors: ["Christine H. Tran"]
+        },
+        {
+          id: 23,
+          year: 2021,
+          category: "nonrefereed",
+          title: "Sharing the Page: Building Community With Annotation",
+          venue: "Liquid Margins Podcast, Hypothes.is",
+          authors: ["Andrew Boyles Petersen", "Haley Stefan"]
+        },
+        {
+          id: 24,
+          year: 2020,
+          category: "nonrefereed",
+          title: "Asian American DH: Building Radical Communities through Justice-Oriented Praxis",
+          venue: "ADHO DH2020",
+          authors: ["Anne Cong-Huyen", "Amardeep Singh", "Dhanashree Thorat", "Setsuko Yokoyama"]
+        },
+
+        // [CATEGORY: "presentation" — Co-Presented Conference Papers & Invited Talks]
+        {
+          id: 25,
+          year: 2025,
+          category: "presentation",
+          title: "Paper Rings: Interrogating The Cultural Techniques Of Transformative Agreements (TAs)",
+          venue: "AoIR2025 Panel (Niterói, Brazil)",
+          authors: ["Reece Steinberg", "Natalie Pang", "Elisha Lim"]
+        },
+        {
+          id: 26,
+          year: 2024,
+          category: "presentation",
+          title: "Reinvention as DH Praxis: Reflecting on (Nearly) a Decade of the Global DH Symposium",
+          venue: "ADHO DH Conference",
+          authors: ["Kristen Mapes", "Kate Topham"]
+        },
+        {
+          id: 27,
+          year: 2023,
+          category: "presentation",
+          title: "Historicizing the Neoliberalization of the Space Economy: Spacecraft and the MIC",
+          venue: "Planetary Science 4 Palestine Teach-In (Invited Talk)",
+          authors: ["Réka Patrícia Gál"]
+        },
+        {
+          id: 28,
+          year: 2023,
+          category: "presentation",
+          title: "(Biblio) Metrics and The Handling of Knowledge",
+          venue: "Kule Institute, Univ. of Alberta (Invited Panel)",
+          authors: ["Won Jeon", "Toni Samek"]
+        },
+        {
+          id: 29,
+          year: 2023,
+          category: "presentation",
+          title: "Historicizing the Neoliberalization of the Space Economy: Iridium Satellites, SpaceX, & Speculative Capital",
+          venue: "Space Science in Context 2023 (Invited Talk)",
+          authors: ["Réka Patrícia Gál"]
+        },
+        {
+          id: 30,
+          year: 2023,
+          category: "presentation",
+          title: "Perils of Place: Geofences and Predatory Platform Intimacies",
+          venue: "AoIR 2023 (Philadelphia)",
+          authors: ["Rebecca Noone"]
+        },
+        {
+          id: 31,
+          year: 2023,
+          category: "presentation",
+          title: "Perils of Place: Geofences, Data Intimacies, and Predatory Algorithmic Processes",
+          venue: "Algorithms for Her? 2 (Sheffield)",
+          authors: ["Rebecca Noone"]
+        },
+        {
+          id: 32,
+          year: 2023,
+          category: "presentation",
+          title: "Against Microcredentials: Seeding Anti-Colonial and Care-Filled Digital Pedagogical Otherwises",
+          venue: "8th Global DH Symposium",
+          authors: ["Ashley Caranto Morford", "Kush Patel"]
+        },
+        {
+          id: 33,
+          year: 2022,
+          category: "presentation",
+          title: "Historicizing the Neoliberalization of the Space Economy: Iridium Satellites, SpaceX, & Speculative Capital",
+          venue: "4S Conference (Cholula, Mexico)",
+          authors: ["Réka Patrícia Gál"]
+        },
+        {
+          id: 34,
+          year: 2022,
+          category: "presentation",
+          title: "Geofencing and Infrastructures of Trespassing",
+          venue: "CDHI International Conference 2022",
+          authors: ["Rebecca Noone"]
+        },
+        {
+          id: 35,
+          year: 2022,
+          category: "presentation",
+          title: "Blessed be the fruit: Analyzing the cultural techniques of New Momism (Roundtable)",
+          venue: "72nd ICA Conference (Paris)",
+          authors: ["Brooke Erin Duffy", "Christine H. Tran", "Erique Zhang", "Jessica Maddox", "Kai Prins", "Nelanthi Hewa"]
+        },
+        {
+          id: 36,
+          year: 2022,
+          category: "presentation",
+          title: "Geofencing and Infrastructures of Trespassing",
+          venue: "DH Unbound 2022",
+          authors: ["Rebecca Noone"]
+        },
+        {
+          id: 37,
+          year: 2022,
+          category: "presentation",
+          title: "Digital Threads: Anti-colonial Storytelling and Community Building Through Twine",
+          venue: "DH Unbound 2022",
+          authors: ["Kush Patel", "Ashley Caranto Morford", "Anna Maria Kalinowski", "Natalia Toronchuk", "Zeinab Farokhi"]
+        },
+        {
+          id: 38,
+          year: 2022,
+          category: "presentation",
+          title: "Scataveillance: Seizing the Means of P[o]oduction",
+          venue: "CCA Annual Conference 2022",
+          authors: ["Constantine Gidaris"]
+        },
+        {
+          id: 39,
+          year: 2022,
+          category: "presentation",
+          title: "Defining the Transnational through Anti-colonial Digital Humanities Pedagogy",
+          venue: "7th Global DH Symposium",
+          authors: ["Ashley Caranto Morford", "Kush Patel"]
+        },
+        {
+          id: 40,
+          year: 2022,
+          category: "presentation",
+          title: "Defining the Transnational through Anti-colonial Digital Humanities Pedagogy",
+          venue: "DHARTI 2022 Conference",
+          authors: ["Ashley Caranto Morford", "Kush Patel"]
+        },
+        {
+          id: 41,
+          year: 2021,
+          category: "presentation",
+          title: "Punching Holes in the International Busa Machine Narrative (Discussion)",
+          venue: "Centre for Digital Humanities, TMU (Invited Talk)",
+          authors: ["Jason Boyd"]
+        },
+        {
+          id: 42,
+          year: 2021,
+          category: "presentation",
+          title: "Care/Pedagogy of the Digitally Oppressed (Podcast Discussion)",
+          venue: "Hybrid Pedagogy / Teacher of the Ear (Invited Talk)",
+          authors: ["Chris Friend", "Ashley Caranto Morford", "Kush Patel"]
+        },
+        {
+          id: 43,
+          year: 2021,
+          category: "presentation",
+          title: "'Never let a good crisis go to waste': COVID-19 and DH in Times of Crisis",
+          venue: "ACH Conference 2021",
+          authors: ["Haley Bryant", "Nelanthi Hewa", "Camille Inston"]
+        },
+        {
+          id: 44,
+          year: 2021,
+          category: "presentation",
+          title: "Social Annotation as Scholarly Practice",
+          venue: "ACH Conference 2021",
+          authors: ["Andrew Boyles Petersen", "Michael Albani", "Christina Boyles", "Lucy Hinnie", "Jessica McDonald"]
+        },
+        {
+          id: 45,
+          year: 2021,
+          category: "presentation",
+          title: "Emergent-cy: Critical DH in the Time of COVID",
+          venue: "DHSI 2021",
+          authors: ["Nelanthi Hewa", "Haley Bryant", "Camille Inston"]
+        },
+        {
+          id: 46,
+          year: 2021,
+          category: "presentation",
+          title: "Developing an Open Social Annotation Toolkit at the DHSI Conference & Colloquium",
+          venue: "DHSI 2021",
+          authors: ["Caroline Winter"]
+        },
+        {
+          id: 47,
+          year: 2021,
+          category: "presentation",
+          title: "How we Learned to Stop SWAT-ing and Love the (Zoom-)Bomb",
+          venue: "CCA Annual Conference 2021",
+          authors: ["Christine H. Tran"]
+        },
+        {
+          id: 48,
+          year: 2021,
+          category: "presentation",
+          title: "Pedagogy of the Digitally Oppressed: Anti-Colonial DH Pedagogy as Care Work",
+          venue: "CSDH-SCHN 2021",
+          authors: ["Ashley Caranto Morford", "Kush Patel"]
+        },
+
+        // [CATEGORY: "workshop" — Co-Taught Workshops]
+        {
+          id: 49,
+          year: 2026,
+          category: "workshop",
+          title: "Dead Media, Living Data: Hacking the Archive",
+          venue: "DH@Guelph Summer Workshop 2026",
+          authors: ["Paula Sanchez Nuñez de Villavicencio"]
+        },
+        {
+          id: 50,
+          year: 2024,
+          category: "workshop",
+          title: "Approaching Media Archaeology from a Digital Humanities Perspective",
+          venue: "DH@Guelph Summer Workshop 2024",
+          authors: ["Paula Sanchez Nuñez de Villavicencio"]
+        },
+        {
+          id: 51,
+          year: 2022,
+          category: "workshop",
+          title: "Pedagogy of the Digitally Oppressed: Introduction to Anti-colonial DH",
+          venue: "Columbia College Chicago Workshop",
+          authors: ["Ashley Caranto Morford", "Kush Patel"]
+        },
+        {
+          id: 52,
+          year: 2021,
+          category: "workshop",
+          title: "Library Carpentry: The UNIX Shell workshop",
+          venue: "iSkills, Faculty of Information, Univ. of Toronto",
+          authors: ["Jordan Pedersen"]
+        },
+        {
+          id: 53,
+          year: 2021,
+          category: "workshop",
+          title: "Pedagogy of the Digitally Oppressed: Anti-Colonial DH Critiques & Praxis",
+          venue: "DHSI 2021 Workshop",
+          authors: ["Ashley Caranto Morford", "Kush Patel"]
+        }
+      ];
+
+      /* =======================================================================
+         2. APPLICATION STATE
+         ======================================================================= */
+      const state = {
+        activeCategories: new Set(["journal", "chapter", "forthcoming", "nonrefereed"]),
+        yearMin: 2020,
+        yearMax: 2026,
+        showHub: true,
+        showCoAuthorLinks: true,
+        showAllLabels: true,
+        searchQuery: "",
+        dashboardTab: "leaderboard", // "leaderboard" | "works"
+        selectedNodeId: null,
+        selectedEdgeKey: null,
+        highlightedWorkId: null,
+        hoveredNodeId: null,
+        hoveredEdgeKey: null,
+        filtersExpanded: true,
+
+        // Derived graph data
+        visibleWorks: [],
+        nodes: [],
+        nodeMap: new Map(),
+        edges: [],
+        edgeMap: new Map(),
+        adjacency: new Map(),
+
+        // Viewport transform (SVG pan & zoom)
+        transform: { x: 0, y: 0, k: 1 },
+        targetTransform: null,
+
+        // Physics simulation state
+        alpha: 0,
+        rafId: null,
+        draggingNode: null,
+        dragMoved: false,
+        dragStartClient: { x: 0, y: 0 },
+        isPanning: false,
+        panStartClient: { x: 0, y: 0 },
+        panStartTransform: { x: 0, y: 0 },
+        pinchState: null
+      };
+
+      // Cache of node DOM references for fast 60fps tick updates
+      const domRefs = {
+        nodeGroups: new Map(),
+        labelGroups: new Map(),
+        edgeLines: new Map(),
+        edgeHits: new Map()
+      };
+
+      /* =======================================================================
+         3. DOM ELEMENT REFERENCES
+         ======================================================================= */
+      const el = {
+        sidebar: document.getElementById("sidebar"),
+        btnToggleSidebar: document.getElementById("btn-toggle-sidebar"),
+        hdrCollabCount: document.getElementById("hdr-collab-count"),
+        hdrWorksCount: document.getElementById("hdr-works-count"),
+        hdrEdgesCount: document.getElementById("hdr-edges-count"),
+        searchInput: document.getElementById("search-input"),
+        searchClear: document.getElementById("search-clear"),
+        searchDropdown: document.getElementById("search-dropdown"),
+        filtersToggle: document.getElementById("filters-toggle"),
+        filtersChevron: document.getElementById("filters-chevron"),
+        filtersBody: document.getElementById("filters-body"),
+        presetCoauthors: document.getElementById("preset-coauthors"),
+        presetAll: document.getElementById("preset-all"),
+        catPillsPrimary: document.getElementById("cat-pills-primary"),
+        catPillsOptional: document.getElementById("cat-pills-optional"),
+        yearMin: document.getElementById("year-min"),
+        yearMax: document.getElementById("year-max"),
+        yearRangeBadge: document.getElementById("year-range-badge"),
+        toggleHub: document.getElementById("toggle-hub"),
+        toggleCoAuthorLinks: document.getElementById("toggle-coauthor-links"),
+        toggleLabels: document.getElementById("toggle-labels"),
+        sidebarBody: document.getElementById("sidebar-body"),
+        canvasArea: document.getElementById("canvas-area"),
+        svg: document.getElementById("network-svg"),
+        viewport: document.getElementById("viewport"),
+        edgesLayer: document.getElementById("edges-layer"),
+        nodesLayer: document.getElementById("nodes-layer"),
+        labelsLayer: document.getElementById("labels-layer"),
+        highlightBanner: document.getElementById("highlight-banner"),
+        highlightBannerText: document.getElementById("highlight-banner-text"),
+        highlightClearBtn: document.getElementById("highlight-clear-btn"),
+        emptyState: document.getElementById("empty-state"),
+        btnResetFilters: document.getElementById("btn-reset-filters"),
+        tooltip: document.getElementById("graph-tooltip"),
+        btnZoomIn: document.getElementById("btn-zoom-in"),
+        btnZoomOut: document.getElementById("btn-zoom-out"),
+        btnFit: document.getElementById("btn-fit"),
+        btnRelayout: document.getElementById("btn-relayout"),
+        btnExportSvg: document.getElementById("btn-export-svg"),
+        toast: document.getElementById("toast")
+      };
+
+      const SVG_NS = "http://www.w3.org/2000/svg";
+
+      /* =======================================================================
+         4. HELPER UTILITIES
+         ======================================================================= */
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function makeEdgeKey(a, b) {
+        return a < b ? `${a}|||${b}` : `${b}|||${a}`;
+      }
+
+      function getInitials(name) {
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      }
+
+      function shortLabel(name) {
+        // Keep full readable names, shorten exceptionally long surname chains only slightly if needed
+        if (name === "Paula Sanchez Nuñez de Villavicencio") return "Paula Sanchez Nuñez";
+        return name;
+      }
+
+      function showToast(message) {
+        el.toast.textContent = message;
+        el.toast.classList.add("visible");
+        clearTimeout(showToast._timer);
+        showToast._timer = setTimeout(() => {
+          el.toast.classList.remove("visible");
+        }, 2600);
+      }
+
+      function createSvgEl(tag, attrs = {}) {
+        const node = document.createElementNS(SVG_NS, tag);
+        for (const [k, v] of Object.entries(attrs)) {
+          node.setAttribute(k, v);
+        }
+        return node;
+      }
+
+      /* =======================================================================
+         5. GRAPH DATA CONSTRUCTION & RADIAL CLUSTER INITIALIZATION
+         ======================================================================= */
+      function buildGraphData(preservePositions = false) {
+        const prevPositions = new Map();
+        if (preservePositions) {
+          for (const n of state.nodes) {
+            prevPositions.set(n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy, fx: n.fx, fy: n.fy });
+          }
+        }
+
+        // 1. Filter works by active categories and year range
+        const visibleWorks = WORKS.filter((w) => {
+          return (
+            state.activeCategories.has(w.category) &&
+            w.year >= state.yearMin &&
+            w.year <= state.yearMax
+          );
+        });
+
+        state.visibleWorks = visibleWorks;
+
+        // 2. Accumulate node stats
+        const authorInfo = new Map();
+
+        function ensureAuthor(name, isHub = false) {
+          if (!authorInfo.has(name)) {
+            authorInfo.set(name, {
+              id: name,
+              isHub,
+              works: [],
+              catCounts: {},
+              years: new Set(),
+              coCollaborators: new Set()
+            });
+          }
+          return authorInfo.get(name);
+        }
+
+        if (visibleWorks.length > 0 && state.showHub) {
+          ensureAuthor(CENTRAL_AUTHOR, true);
+        }
+
+        // Track co-author-only adjacency for cluster detection
+        const coAuthorAdj = new Map();
+        const edgeMap = new Map();
+
+        function addEdgeWork(a, b, work, isHubEdge) {
+          const key = makeEdgeKey(a, b);
+          if (!edgeMap.has(key)) {
+            edgeMap.set(key, {
+              key,
+              sourceId: a < b ? a : b,
+              targetId: a < b ? b : a,
+              works: [],
+              isHubEdge
+            });
+          }
+          edgeMap.get(key).works.push(work);
+        }
+
+        for (const work of visibleWorks) {
+          const hubInfo = state.showHub ? ensureAuthor(CENTRAL_AUTHOR, true) : null;
+          if (hubInfo) {
+            hubInfo.works.push(work);
+            hubInfo.catCounts[work.category] = (hubInfo.catCounts[work.category] || 0) + 1;
+            hubInfo.years.add(work.year);
+          }
+
+          for (const author of work.authors) {
+            const info = ensureAuthor(author, false);
+            info.works.push(work);
+            info.catCounts[work.category] = (info.catCounts[work.category] || 0) + 1;
+            info.years.add(work.year);
+
+            if (!coAuthorAdj.has(author)) coAuthorAdj.set(author, new Set());
+
+            if (hubInfo) {
+              hubInfo.coCollaborators.add(author);
+              info.coCollaborators.add(CENTRAL_AUTHOR);
+              addEdgeWork(CENTRAL_AUTHOR, author, work, true);
+            }
+          }
+
+          // Pairwise co-author links
+          for (let i = 0; i < work.authors.length; i++) {
+            for (let j = i + 1; j < work.authors.length; j++) {
+              const a = work.authors[i];
+              const b = work.authors[j];
+              coAuthorAdj.get(a).add(b);
+              coAuthorAdj.get(b).add(a);
+              authorInfo.get(a).coCollaborators.add(b);
+              authorInfo.get(b).coCollaborators.add(a);
+              if (state.showCoAuthorLinks) {
+                addEdgeWork(a, b, work, false);
+              }
+            }
+          }
+        }
+
+        // 3. Determine primary category & visual properties for each node
+        const nodes = [];
+        const nodeMap = new Map();
+
+        for (const [id, info] of authorInfo.entries()) {
+          // Pick primary category by highest work count, then academic priority
+          let primaryCat = "journal";
+          if (!info.isHub) {
+            let bestCount = -1;
+            let bestPriority = 999;
+            for (const [catId, cnt] of Object.entries(info.catCounts)) {
+              const prio = CATEGORIES[catId].priority;
+              if (cnt > bestCount || (cnt === bestCount && prio < bestPriority)) {
+                bestCount = cnt;
+                bestPriority = prio;
+                primaryCat = catId;
+              }
+            }
+          }
+
+          const workCount = info.works.length;
+          const radius = info.isHub
+            ? 24
+            : Math.min(20, 7.5 + Math.sqrt(workCount) * 3.8);
+
+          const node = {
+            id,
+            isHub: info.isHub,
+            works: info.works.slice().sort((a, b) => b.year - a.year || a.id - b.id),
+            workCount,
+            catCounts: info.catCounts,
+            primaryCat,
+            color: info.isHub ? "#0F172A" : CATEGORIES[primaryCat].color,
+            years: Array.from(info.years).sort((a, b) => a - b),
+            coCollaborators: Array.from(info.coCollaborators),
+            radius,
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            fx: null,
+            fy: null,
+            clusterId: -1
+          };
+
+          nodes.push(node);
+          nodeMap.set(id, node);
+        }
+
+        // 4. Find connected components among co-authors (for clean radial cluster placement)
+        const visited = new Set();
+        const clusters = [];
+        for (const n of nodes) {
+          if (n.isHub || visited.has(n.id)) continue;
+          const comp = [];
+          const queue = [n.id];
+          visited.add(n.id);
+          while (queue.length > 0) {
+            const curr = queue.shift();
+            comp.push(curr);
+            const neighbors = coAuthorAdj.get(curr) || new Set();
+            for (const nb of neighbors) {
+              if (!visited.has(nb) && nodeMap.has(nb)) {
+                visited.add(nb);
+                queue.push(nb);
+              }
+            }
+          }
+          clusters.push(comp);
+        }
+
+        // Sort clusters: largest multi-author cliques first, then solo collaborators sorted by frequency
+        clusters.sort((a, b) => {
+          if (b.length !== a.length) return b.length - a.length;
+          const maxA = Math.max(...a.map((id) => nodeMap.get(id).workCount));
+          const maxB = Math.max(...b.map((id) => nodeMap.get(id).workCount));
+          if (maxB !== maxA) return maxB - maxA;
+          return a[0].localeCompare(b[0]);
+        });
+
+        // 5. Assign initial radial cluster coordinates (deterministic & untangled)
+        const totalCoAuthors = Math.max(1, nodes.filter((n) => !n.isHub).length);
+        let currentAngle = -Math.PI / 2;
+
+        clusters.forEach((comp, cIdx) => {
+          // Give each cluster an angular wedge proportional to its size (with minimum padding)
+          const weight = comp.length + 0.6;
+          const totalWeight = clusters.reduce((sum, c) => sum + c.length + 0.6, 0);
+          const wedge = (weight / totalWeight) * Math.PI * 2;
+          const midAngle = currentAngle + wedge / 2;
+
+          // Sort members inside cluster by frequency (descending) so key connectors sit closer to hub
+          comp.sort((a, b) => nodeMap.get(b).workCount - nodeMap.get(a).workCount || a.localeCompare(b));
+
+          const baseDist = state.showHub
+            ? (comp.length === 1 ? 210 : 235 + Math.min(80, comp.length * 10))
+            : (comp.length === 1 ? 240 : 185 + Math.min(70, comp.length * 8));
+
+          const cx = Math.cos(midAngle) * baseDist;
+          const cy = Math.sin(midAngle) * baseDist;
+
+          comp.forEach((id, idx) => {
+            const node = nodeMap.get(id);
+            node.clusterId = cIdx;
+
+            if (preservePositions && prevPositions.has(id)) {
+              const prev = prevPositions.get(id);
+              node.x = prev.x;
+              node.y = prev.y;
+              node.vx = prev.vx * 0.3;
+              node.vy = prev.vy * 0.3;
+              node.fx = prev.fx;
+              node.fy = prev.fy;
+            } else if (comp.length === 1) {
+              // Solo collaborators: slightly closer if high collaboration count
+              const freqOffset = Math.max(-55, -node.workCount * 14);
+              const r = baseDist + freqOffset;
+              node.x = Math.cos(midAngle) * r;
+              node.y = Math.sin(midAngle) * r;
+            } else {
+              // Arrange cluster members in a clean local sub-ring facing the hub
+              const subRadius = 42 + comp.length * 8.5;
+              const subAngle = midAngle + Math.PI + (idx / comp.length) * Math.PI * 2;
+              const freqPull = idx === 0 && node.workCount >= 3 ? 0.52 : 1;
+              node.x = cx + Math.cos(subAngle) * subRadius * freqPull;
+              node.y = cy + Math.sin(subAngle) * subRadius * freqPull;
+            }
+          });
+
+          currentAngle += wedge;
+        });
+
+        // Position Hub at center
+        if (nodeMap.has(CENTRAL_AUTHOR)) {
+          const hub = nodeMap.get(CENTRAL_AUTHOR);
+          if (preservePositions && prevPositions.has(CENTRAL_AUTHOR)) {
+            const prev = prevPositions.get(CENTRAL_AUTHOR);
+            hub.x = prev.x;
+            hub.y = prev.y;
+            hub.fx = prev.fx;
+            hub.fy = prev.fy;
+          } else {
+            hub.x = 0;
+            hub.y = 0;
+          }
+        }
+
+        // 6. Build edges array and adjacency map
+        const edges = [];
+        const adjacency = new Map();
+        for (const n of nodes) adjacency.set(n.id, new Set());
+
+        for (const edge of edgeMap.values()) {
+          const src = nodeMap.get(edge.sourceId);
+          const tgt = nodeMap.get(edge.targetId);
+          if (!src || !tgt) continue;
+          edge.source = src;
+          edge.target = tgt;
+          edge.weight = edge.works.length;
+          edge.works.sort((a, b) => b.year - a.year || a.id - b.id);
+          edges.push(edge);
+          adjacency.get(src.id).add(tgt.id);
+          adjacency.get(tgt.id).add(src.id);
+        }
+
+        state.nodes = nodes;
+        state.nodeMap = nodeMap;
+        state.edges = edges;
+        state.edgeMap = edgeMap;
+        state.adjacency = adjacency;
+
+        // Validate current selection against new visible graph
+        if (state.selectedNodeId && !nodeMap.has(state.selectedNodeId)) {
+          state.selectedNodeId = null;
+        }
+        if (state.selectedEdgeKey && !edgeMap.has(state.selectedEdgeKey)) {
+          state.selectedEdgeKey = null;
+        }
+        if (state.highlightedWorkId && !visibleWorks.some((w) => w.id === state.highlightedWorkId)) {
+          state.highlightedWorkId = null;
+        }
+
+        // Show/hide empty state
+        el.emptyState.classList.toggle("visible", visibleWorks.length === 0);
+      }
+
+      /* =======================================================================
+         6. CUSTOM FORCE-DIRECTED GRAPH PHYSICS ENGINE (Zero Dependencies)
+         ======================================================================= */
+      function stepPhysics(alpha) {
+        const nodes = state.nodes;
+        const edges = state.edges;
+        const nLen = nodes.length;
+        if (nLen === 0) return;
+
+        // Tunable physics constants
+        const repulsionStrength = state.showHub ? 4800 : 3400;
+        const centerGravity = state.showHub ? 0.022 : 0.038;
+        const damping = 0.82;
+
+        // 1. Pairwise Repulsion + Soft Label-Aware Collision Detection
+        for (let i = 0; i < nLen; i++) {
+          const a = nodes[i];
+          for (let j = i + 1; j < nLen; j++) {
+            const b = nodes[j];
+            let dx = b.x - a.x;
+            let dy = b.y - a.y;
+            let distSq = dx * dx + dy * dy;
+
+            if (distSq < 0.01) {
+              // Deterministic tiny nudge to avoid division by zero
+              dx = (i % 2 === 0 ? 1 : -1) * 0.5;
+              dy = (j % 2 === 0 ? 1 : -1) * 0.5;
+              distSq = dx * dx + dy * dy;
+            }
+
+            const dist = Math.sqrt(distSq);
+            const ux = dx / dist;
+            const uy = dy / dist;
+
+            // Coulomb repulsion (slightly reduced within same co-author clique so clusters remain cohesive)
+            const sameCluster = !a.isHub && !b.isHub && a.clusterId === b.clusterId;
+            const rep = (sameCluster ? repulsionStrength * 0.62 : repulsionStrength) / (distSq + 160);
+            const fx = ux * rep * alpha * 14;
+            const fy = uy * rep * alpha * 14;
+
+            a.vx -= fx;
+            a.vy -= fy;
+            b.vx += fx;
+            b.vy += fy;
+
+            // Collision avoidance (extra horizontal spacing for readable labels)
+            const minDist = a.radius + b.radius + (a.isHub || b.isHub ? 46 : 36);
+            if (dist < minDist) {
+              const overlap = (minDist - dist) * 0.34 * alpha;
+              // Slightly stronger horizontal push if vertically close (prevents pill label overlap)
+              const hBoost = Math.abs(dy) < 22 ? 1.3 : 1.0;
+              a.vx -= ux * overlap * hBoost;
+              a.vy -= uy * overlap;
+              b.vx += ux * overlap * hBoost;
+              b.vy += uy * overlap;
+            }
+          }
+        }
+
+        // 2. Spring Attraction Forces along Edges
+        for (let i = 0; i < edges.length; i++) {
+          const e = edges[i];
+          const a = e.source;
+          const b = e.target;
+
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+          let targetLen;
+          let kSpring;
+
+          if (e.isHubEdge) {
+            // Frequent collaborators pull closer to Arun Jacob
+            const other = a.isHub ? b : a;
+            targetLen = Math.max(125, 245 - Math.min(other.workCount, 10) * 14);
+            kSpring = 0.028 + Math.min(e.weight, 8) * 0.004;
+          } else {
+            // Co-author-to-co-author links hold research teams neatly together
+            targetLen = Math.max(76, 118 - Math.min(e.weight, 6) * 8);
+            kSpring = state.showHub ? 0.055 : 0.085;
+          }
+
+          const displacement = dist - targetLen;
+          const force = displacement * kSpring * alpha;
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
+
+          a.vx += fx;
+          a.vy += fy;
+          b.vx -= fx;
+          b.vy -= fy;
+        }
+
+        // 3. Center Gravity & Hub Anchoring
+        for (let i = 0; i < nLen; i++) {
+          const n = nodes[i];
+          if (n.isHub && n.fx === null) {
+            // Softly anchor Arun Jacob near (0, 0) unless manually dragged
+            n.vx += (0 - n.x) * 0.14 * alpha;
+            n.vy += (0 - n.y) * 0.14 * alpha;
+          } else {
+            n.vx += (0 - n.x) * centerGravity * alpha;
+            n.vy += (0 - n.y) * centerGravity * alpha;
+          }
+        }
+
+        // 4. Integrate Velocities & Enforce Pinned Positions
+        for (let i = 0; i < nLen; i++) {
+          const n = nodes[i];
+          if (n.fx !== null && n.fy !== null) {
+            n.x = n.fx;
+            n.y = n.fy;
+            n.vx = 0;
+            n.vy = 0;
+          } else {
+            n.vx *= damping;
+            n.vy *= damping;
+            // Clamp extreme velocity spikes
+            const speed = Math.sqrt(n.vx * n.vx + n.vy * n.vy);
+            if (speed > 26) {
+              n.vx = (n.vx / speed) * 26;
+              n.vy = (n.vy / speed) * 26;
+            }
+            n.x += n.vx;
+            n.y += n.vy;
+          }
+        }
+      }
+
+      function warmUpSimulation(ticks = 75) {
+        let a = 1.0;
+        for (let i = 0; i < ticks; i++) {
+          stepPhysics(a);
+          a *= 0.975;
+        }
+        state.alpha = 0.22; // gentle live finish
+      }
+
+      function startAnimationLoop() {
+        if (state.rafId !== null) return;
+        function frame() {
+          let needsRender = false;
+
+          // Smooth camera transition (for Fit / Focus Node)
+          if (state.targetTransform) {
+            const t = state.transform;
+            const tgt = state.targetTransform;
+            t.x += (tgt.x - t.x) * 0.16;
+            t.y += (tgt.y - t.y) * 0.16;
+            t.k += (tgt.k - t.k) * 0.16;
+            applyViewportTransform();
+
+            if (
+              Math.abs(tgt.x - t.x) < 0.4 &&
+              Math.abs(tgt.y - t.y) < 0.4 &&
+              Math.abs(tgt.k - t.k) < 0.002
+            ) {
+              state.transform = { ...tgt };
+              applyViewportTransform();
+              state.targetTransform = null;
+            }
+            needsRender = true;
+          }
+
+          // Force-directed physics tick
+          if (state.alpha > 0.004 || state.draggingNode) {
+            stepPhysics(Math.max(state.alpha, state.draggingNode ? 0.12 : 0));
+            if (!state.draggingNode) {
+              state.alpha *= 0.965;
+            }
+            updateSvgPositions();
+            needsRender = true;
+          } else {
+            state.alpha = 0;
+          }
+
+          if (needsRender) {
+            state.rafId = requestAnimationFrame(frame);
+          } else {
+            state.rafId = null;
+          }
+        }
+        state.rafId = requestAnimationFrame(frame);
+      }
+
+      function reheat(alpha = 0.45) {
+        state.alpha = Math.max(state.alpha, alpha);
+        startAnimationLoop();
+      }
+
+      /* =======================================================================
+         7. SVG GRAPH RENDERING & VISUAL EMPHASIS
+         ======================================================================= */
+      function buildMultiCategoryRing(node) {
+        const cats = Object.keys(node.catCounts).sort(
+          (a, b) => CATEGORIES[a].priority - CATEGORIES[b].priority
+        );
+        if (cats.length <= 1) return null;
+
+        const g = createSvgEl("g", { class: "multi-cat-ring" });
+        const total = node.workCount;
+        const r = node.radius + 3;
+        let startAngle = -Math.PI / 2;
+
+        cats.forEach((catId) => {
+          const frac = node.catCounts[catId] / total;
+          const sweep = frac * Math.PI * 2;
+          const endAngle = startAngle + sweep;
+          const x1 = Math.cos(startAngle) * r;
+          const y1 = Math.sin(startAngle) * r;
+          const x2 = Math.cos(endAngle) * r;
+          const y2 = Math.sin(endAngle) * r;
+          const largeArc = sweep > Math.PI ? 1 : 0;
+
+          const path = createSvgEl("path", {
+            d: `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`,
+            fill: "none",
+            stroke: CATEGORIES[catId].color,
+            "stroke-width": "2.4",
+            "stroke-linecap": "butt",
+            opacity: "0.85"
+          });
+          g.appendChild(path);
+          startAngle = endAngle;
+        });
+
+        return g;
+      }
+
+      function renderGraphElements() {
+        el.edgesLayer.innerHTML = "";
+        el.nodesLayer.innerHTML = "";
+        el.labelsLayer.innerHTML = "";
+        domRefs.nodeGroups.clear();
+        domRefs.labelGroups.clear();
+        domRefs.edgeLines.clear();
+        domRefs.edgeHits.clear();
+
+        // 1. Render Edges
+        const edgeFrag = document.createDocumentFragment();
+        for (const edge of state.edges) {
+          const isCoAuthorOnlyMode = !state.showHub;
+          const baseWidth = edge.isHubEdge
+            ? Math.min(6.2, 1.2 + edge.weight * 0.82)
+            : Math.min(5.0, (isCoAuthorOnlyMode ? 1.5 : 1.05) + edge.weight * 0.65);
+
+          const strokeColor = edge.isHubEdge
+            ? "#94A3B8"
+            : isCoAuthorOnlyMode
+            ? "#64748B"
+            : "#CBD5E1";
+
+          const lineAttrs = {
+            class: "edge-line",
+            stroke: strokeColor,
+            "stroke-width": baseWidth.toFixed(2),
+            "stroke-opacity": edge.isHubEdge ? "0.6" : isCoAuthorOnlyMode ? "0.68" : "0.75",
+            "stroke-linecap": "round"
+          };
+
+          if (!edge.isHubEdge && state.showHub) {
+            lineAttrs["stroke-dasharray"] = "4 3";
+          }
+
+          const line = createSvgEl("line", lineAttrs);
+          const hit = createSvgEl("line", { class: "edge-hit" });
+
+          hit.addEventListener("mouseenter", (ev) => onEdgeHover(edge, ev));
+          hit.addEventListener("mousemove", (ev) => moveTooltip(ev));
+          hit.addEventListener("mouseleave", onEdgeLeave);
+          hit.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            selectEdge(edge.key);
+          });
+
+          edgeFrag.appendChild(line);
+          edgeFrag.appendChild(hit);
+          domRefs.edgeLines.set(edge.key, line);
+          domRefs.edgeHits.set(edge.key, hit);
+        }
+        el.edgesLayer.appendChild(edgeFrag);
+
+        // 2. Render Nodes & Labels
+        const nodeFrag = document.createDocumentFragment();
+        const labelFrag = document.createDocumentFragment();
+
+        for (const node of state.nodes) {
+          const g = createSvgEl("g", { class: "node-group", "data-id": node.id });
+
+          // Optional Hub outer halo
+          if (node.isHub) {
+            const halo = createSvgEl("circle", {
+              r: node.radius + 6,
+              fill: "rgba(15, 23, 42, 0.08)",
+              stroke: "rgba(15, 23, 42, 0.25)",
+              "stroke-width": "1.2",
+              "stroke-dasharray": "3 3"
+            });
+            g.appendChild(halo);
+          } else {
+            const ring = buildMultiCategoryRing(node);
+            if (ring) g.appendChild(ring);
+          }
+
+          // Main Node Circle
+          const circle = createSvgEl("circle", {
+            class: "node-circle",
+            r: node.radius.toFixed(2),
+            fill: node.color,
+            stroke: "#FFFFFF",
+            "stroke-width": node.isHub ? "3" : "2.2"
+          });
+          g.appendChild(circle);
+
+          // Inside badge for Hub or frequent collaborators (>= 3 works)
+          if (node.isHub) {
+            const hubText = createSvgEl("text", {
+              "text-anchor": "middle",
+              "dominant-baseline": "central",
+              fill: "#FFFFFF",
+              "font-size": "11",
+              "font-weight": "800",
+              "letter-spacing": "0.04em",
+              "pointer-events": "none"
+            });
+            hubText.textContent = "AJ";
+            g.appendChild(hubText);
+          } else if (node.workCount >= 3) {
+            const cntText = createSvgEl("text", {
+              "text-anchor": "middle",
+              "dominant-baseline": "central",
+              fill: "#FFFFFF",
+              "font-size": node.radius >= 15 ? "10" : "9",
+              "font-weight": "700",
+              "pointer-events": "none"
+            });
+            cntText.textContent = String(node.workCount);
+            g.appendChild(cntText);
+          }
+
+          // Pin indicator (hidden unless fx !== null)
+          const pinDot = createSvgEl("circle", {
+            class: "pin-dot",
+            cx: (node.radius * 0.72).toFixed(1),
+            cy: (-node.radius * 0.72).toFixed(1),
+            r: "3.2",
+            fill: "#0F172A",
+            stroke: "#FFFFFF",
+            "stroke-width": "1.2",
+            style: node.fx !== null ? "" : "display:none"
+          });
+          g.appendChild(pinDot);
+
+          // Node Pointer Events
+          g.addEventListener("mouseenter", (ev) => onNodeHover(node, ev));
+          g.addEventListener("mousemove", (ev) => moveTooltip(ev));
+          g.addEventListener("mouseleave", onNodeLeave);
+          g.addEventListener("pointerdown", (ev) => onNodePointerDown(node, ev));
+          g.addEventListener("dblclick", (ev) => {
+            ev.stopPropagation();
+            onNodeDoubleClick(node);
+          });
+
+          nodeFrag.appendChild(g);
+          domRefs.nodeGroups.set(node.id, g);
+
+          // Label Pill (rendered in top labels layer so edges never cross over text)
+          const lg = createSvgEl("g", { class: "node-label-group", "data-id": node.id });
+          const displayText = shortLabel(node.id);
+          const fontSize = node.isHub ? 12.5 : node.workCount >= 3 ? 11.5 : 10.5;
+          const approxWidth = displayText.length * (fontSize * 0.56) + 12;
+          const pillHeight = fontSize + 6;
+          const yOffset = node.radius + (node.isHub ? 16 : 12);
+
+          const rect = createSvgEl("rect", {
+            class: "node-label-bg",
+            x: (-approxWidth / 2).toFixed(1),
+            y: (yOffset - pillHeight / 2).toFixed(1),
+            width: approxWidth.toFixed(1),
+            height: pillHeight.toFixed(1),
+            rx: "5",
+            ry: "5"
+          });
+
+          const text = createSvgEl("text", {
+            class: "node-label-text",
+            x: "0",
+            y: (yOffset + 0.5).toFixed(1),
+            "text-anchor": "middle",
+            "dominant-baseline": "central",
+            "font-size": String(fontSize),
+            "font-weight": node.isHub ? "800" : node.workCount >= 3 ? "700" : "500"
+          });
+          text.textContent = displayText;
+
+          lg.appendChild(rect);
+          lg.appendChild(text);
+          labelFrag.appendChild(lg);
+          domRefs.labelGroups.set(node.id, lg);
+        }
+
+        el.nodesLayer.appendChild(nodeFrag);
+        el.labelsLayer.appendChild(labelFrag);
+
+        updateSvgPositions();
+        updateVisualEmphasis();
+      }
+
+      function updateSvgPositions() {
+        for (const edge of state.edges) {
+          const line = domRefs.edgeLines.get(edge.key);
+          const hit = domRefs.edgeHits.get(edge.key);
+          if (!line) continue;
+          const x1 = edge.source.x.toFixed(2);
+          const y1 = edge.source.y.toFixed(2);
+          const x2 = edge.target.x.toFixed(2);
+          const y2 = edge.target.y.toFixed(2);
+          line.setAttribute("x1", x1);
+          line.setAttribute("y1", y1);
+          line.setAttribute("x2", x2);
+          line.setAttribute("y2", y2);
+          hit.setAttribute("x1", x1);
+          hit.setAttribute("y1", y1);
+          hit.setAttribute("x2", x2);
+          hit.setAttribute("y2", y2);
+        }
+
+        for (const node of state.nodes) {
+          const g = domRefs.nodeGroups.get(node.id);
+          const lg = domRefs.labelGroups.get(node.id);
+          const tf = `translate(${node.x.toFixed(2)}, ${node.y.toFixed(2)})`;
+          if (g) g.setAttribute("transform", tf);
+          if (lg) lg.setAttribute("transform", tf);
+        }
+      }
+
+      /**
+       * Computes active focus/highlight sets (hover ego-network, selected node/edge,
+       * highlighted work, or search query matches) and applies crisp dimming/highlighting.
+       */
+      function updateVisualEmphasis() {
+        let focusNodes = null;
+        let focusEdges = null;
+
+        // Priority 1: Active Hover (immediate ego-network preview)
+        if (state.hoveredNodeId && state.nodeMap.has(state.hoveredNodeId)) {
+          focusNodes = new Set([state.hoveredNodeId]);
+          const adj = state.adjacency.get(state.hoveredNodeId) || new Set();
+          adj.forEach((id) => focusNodes.add(id));
+          focusEdges = new Set();
+          for (const e of state.edges) {
+            if (e.sourceId === state.hoveredNodeId || e.targetId === state.hoveredNodeId) {
+              focusEdges.add(e.key);
+            }
+          }
+        } else if (state.hoveredEdgeKey && state.edgeMap.has(state.hoveredEdgeKey)) {
+          const e = state.edgeMap.get(state.hoveredEdgeKey);
+          focusNodes = new Set([e.sourceId, e.targetId]);
+          focusEdges = new Set([e.key]);
+        }
+        // Priority 2: Highlighted specific work
+        else if (state.highlightedWorkId) {
+          const work = state.visibleWorks.find((w) => w.id === state.highlightedWorkId);
+          if (work) {
+            focusNodes = new Set(work.authors);
+            if (state.showHub) focusNodes.add(CENTRAL_AUTHOR);
+            focusEdges = new Set();
+            for (const e of state.edges) {
+              if (e.works.some((w) => w.id === work.id)) {
+                focusEdges.add(e.key);
+              }
+            }
+          }
+        }
+        // Priority 3: Selected Node or Edge
+        else if (state.selectedNodeId && state.nodeMap.has(state.selectedNodeId)) {
+          focusNodes = new Set([state.selectedNodeId]);
+          const adj = state.adjacency.get(state.selectedNodeId) || new Set();
+          adj.forEach((id) => focusNodes.add(id));
+          focusEdges = new Set();
+          for (const e of state.edges) {
+            if (e.sourceId === state.selectedNodeId || e.targetId === state.selectedNodeId) {
+              focusEdges.add(e.key);
+            }
+          }
+        } else if (state.selectedEdgeKey && state.edgeMap.has(state.selectedEdgeKey)) {
+          const e = state.edgeMap.get(state.selectedEdgeKey);
+          focusNodes = new Set([e.sourceId, e.targetId]);
+          focusEdges = new Set([e.key]);
+        }
+        // Priority 4: Search Query Highlight
+        else if (state.searchQuery.trim().length > 0) {
+          const q = state.searchQuery.trim().toLowerCase();
+          const matchedNodes = new Set();
+          for (const n of state.nodes) {
+            if (n.id.toLowerCase().includes(q)) {
+              matchedNodes.add(n.id);
+            }
+          }
+          for (const w of state.visibleWorks) {
+            if (w.title.toLowerCase().includes(q) || w.venue.toLowerCase().includes(q)) {
+              w.authors.forEach((a) => matchedNodes.add(a));
+              if (state.showHub) matchedNodes.add(CENTRAL_AUTHOR);
+            }
+          }
+          if (matchedNodes.size > 0) {
+            focusNodes = matchedNodes;
+            focusEdges = new Set();
+            for (const e of state.edges) {
+              if (matchedNodes.has(e.sourceId) && matchedNodes.has(e.targetId)) {
+                focusEdges.add(e.key);
+              }
+            }
+          }
+        }
+
+        // Apply to Nodes & Labels
+        for (const node of state.nodes) {
+          const g = domRefs.nodeGroups.get(node.id);
+          const lg = domRefs.labelGroups.get(node.id);
+          if (!g || !lg) continue;
+
+          const isFocused = !focusNodes || focusNodes.has(node.id);
+          const isPrimarySelected = node.id === state.selectedNodeId || node.id === state.hoveredNodeId;
+
+          g.classList.toggle("dimmed", !isFocused);
+
+          // Selection ring accent
+          const circle = g.querySelector(".node-circle");
+          if (circle) {
+            circle.setAttribute("stroke", isPrimarySelected ? "#0F172A" : "#FFFFFF");
+            circle.setAttribute("stroke-width", isPrimarySelected ? "3.4" : node.isHub ? "3" : "2.2");
+          }
+
+          // Label visibility
+          const shouldShowLabel =
+            state.showAllLabels ||
+            node.isHub ||
+            isPrimarySelected ||
+            (focusNodes && focusNodes.has(node.id));
+
+          lg.style.display = shouldShowLabel ? "" : "none";
+          lg.classList.toggle("dimmed", !isFocused);
+        }
+
+        // Apply to Edges
+        for (const edge of state.edges) {
+          const line = domRefs.edgeLines.get(edge.key);
+          if (!line) continue;
+
+          const isFocused = !focusEdges || focusEdges.has(edge.key);
+          const isSelectedEdge = edge.key === state.selectedEdgeKey || edge.key === state.hoveredEdgeKey;
+
+          line.classList.toggle("dimmed", !isFocused);
+          line.classList.toggle("edge-selected", isSelectedEdge);
+
+          if (focusEdges && isFocused && !isSelectedEdge) {
+            line.setAttribute("stroke", edge.isHubEdge ? "#475569" : "#64748B");
+            line.setAttribute("stroke-opacity", "0.9");
+          } else if (!isSelectedEdge) {
+            const isCoAuthorOnlyMode = !state.showHub;
+            line.setAttribute(
+              "stroke",
+              edge.isHubEdge ? "#94A3B8" : isCoAuthorOnlyMode ? "#64748B" : "#CBD5E1"
+            );
+            line.setAttribute(
+              "stroke-opacity",
+              edge.isHubEdge ? "0.6" : isCoAuthorOnlyMode ? "0.68" : "0.75"
+            );
+          }
+        }
+
+        // Update Top Highlight Banner if a specific work is highlighted
+        if (state.highlightedWorkId) {
+          const work = state.visibleWorks.find((w) => w.id === state.highlightedWorkId);
+          if (work) {
+            el.highlightBannerText.textContent = `Highlighting work: "${work.title}" (${work.displayYear || work.year})`;
+            el.highlightBanner.classList.add("visible");
+          }
+        } else {
+          el.highlightBanner.classList.remove("visible");
+        }
+      }
+
+      /* =======================================================================
+         8. CAMERA PAN / ZOOM / FIT / FOCUS CONTROLS
+         ======================================================================= */
+      function applyViewportTransform() {
+        const { x, y, k } = state.transform;
+        el.viewport.setAttribute("transform", `translate(${x.toFixed(2)}, ${y.toFixed(2)}) scale(${k.toFixed(4)})`);
+      }
+
+      function getCanvasSize() {
+        const rect = el.canvasArea.getBoundingClientRect();
+        return { width: Math.max(200, rect.width), height: Math.max(200, rect.height) };
+      }
+
+      function fitToScreen(animate = true) {
+        if (state.nodes.length === 0) return;
+        const { width, height } = getCanvasSize();
+
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const n of state.nodes) {
+          const padX = n.radius + 78;
+          const padY = n.radius + 36;
+          if (n.x - padX < minX) minX = n.x - padX;
+          if (n.x + padX > maxX) maxX = n.x + padX;
+          if (n.y - padY < minY) minY = n.y - padY;
+          if (n.y + padY > maxY) maxY = n.y + padY;
+        }
+
+        const graphW = Math.max(100, maxX - minX);
+        const graphH = Math.max(100, maxY - minY);
+        const padding = 36;
+        const scale = Math.min(
+          1.45,
+          Math.max(0.28, Math.min((width - padding * 2) / graphW, (height - padding * 2) / graphH))
+        );
+
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        const nextTransform = {
+          x: width / 2 - cx * scale,
+          y: height / 2 - cy * scale,
+          k: scale
+        };
+
+        if (animate) {
+          state.targetTransform = nextTransform;
+          startAnimationLoop();
+        } else {
+          state.targetTransform = null;
+          state.transform = nextTransform;
+          applyViewportTransform();
+        }
+      }
+
+      function focusNode(nodeId) {
+        const node = state.nodeMap.get(nodeId);
+        if (!node) return;
+        const { width, height } = getCanvasSize();
+        const targetK = Math.max(state.transform.k, 1.05);
+        state.targetTransform = {
+          x: width / 2 - node.x * targetK,
+          y: height / 2 - node.y * targetK,
+          k: Math.min(targetK, 1.5)
+        };
+        startAnimationLoop();
+      }
+
+      function zoomByFactor(factor, clientX, clientY) {
+        const rect = el.svg.getBoundingClientRect();
+        const px = clientX !== undefined ? clientX - rect.left : rect.width / 2;
+        const py = clientY !== undefined ? clientY - rect.top : rect.height / 2;
+
+        state.targetTransform = null;
+        const oldK = state.transform.k;
+        const newK = Math.min(3.5, Math.max(0.22, oldK * factor));
+        const ratio = newK / oldK;
+
+        state.transform.x = px - (px - state.transform.x) * ratio;
+        state.transform.y = py - (py - state.transform.y) * ratio;
+        state.transform.k = newK;
+        applyViewportTransform();
+      }
+
+      function clientToGraph(clientX, clientY) {
+        const rect = el.svg.getBoundingClientRect();
+        const sx = clientX - rect.left;
+        const sy = clientY - rect.top;
+        return {
+          x: (sx - state.transform.x) / state.transform.k,
+          y: (sy - state.transform.y) / state.transform.k
+        };
+      }
+
+      /* =======================================================================
+         9. POINTER, DRAG, TOOLTIP & SELECTION INTERACTIONS
+         ======================================================================= */
+      function moveTooltip(ev) {
+        const rect = el.canvasArea.getBoundingClientRect();
+        let x = ev.clientX - rect.left + 14;
+        let y = ev.clientY - rect.top + 14;
+        const tipW = el.tooltip.offsetWidth || 200;
+        const tipH = el.tooltip.offsetHeight || 64;
+
+        if (x + tipW > rect.width - 10) x = ev.clientX - rect.left - tipW - 14;
+        if (y + tipH > rect.height - 10) y = ev.clientY - rect.top - tipH - 14;
+
+        el.tooltip.style.left = `${Math.max(8, x)}px`;
+        el.tooltip.style.top = `${Math.max(8, y)}px`;
+      }
+
+      function onNodeHover(node, ev) {
+        if (state.draggingNode) return;
+        state.hoveredNodeId = node.id;
+        state.hoveredEdgeKey = null;
+        updateVisualEmphasis();
+
+        const plural = node.workCount === 1 ? "work" : "works";
+        const catSummary = node.isHub
+          ? `${state.nodes.length - 1} visible collaborators`
+          : `${CATEGORIES[node.primaryCat].label} · ${node.workCount} shared ${plural}`;
+
+        el.tooltip.innerHTML = `
+          <div class="tooltip-name">${escapeHtml(node.id)}</div>
+          <div class="tooltip-meta">${escapeHtml(catSummary)}</div>
+          <div class="tooltip-hint">Click to inspect · Drag to move</div>
+        `;
+        el.tooltip.classList.add("visible");
+        moveTooltip(ev);
+      }
+
+      function onNodeLeave() {
+        if (state.draggingNode) return;
+        state.hoveredNodeId = null;
+        el.tooltip.classList.remove("visible");
+        updateVisualEmphasis();
+      }
+
+      function onEdgeHover(edge, ev) {
+        if (state.draggingNode) return;
+        state.hoveredEdgeKey = edge.key;
+        state.hoveredNodeId = null;
+        updateVisualEmphasis();
+
+        const plural = edge.weight === 1 ? "shared work" : "shared works";
+        el.tooltip.innerHTML = `
+          <div class="tooltip-name">${escapeHtml(edge.sourceId)} &harr; ${escapeHtml(edge.targetId)}</div>
+          <div class="tooltip-meta">${edge.weight} ${plural}</div>
+          <div class="tooltip-hint">Click edge to inspect shared works</div>
+        `;
+        el.tooltip.classList.add("visible");
+        moveTooltip(ev);
+      }
+
+      function onEdgeLeave() {
+        state.hoveredEdgeKey = null;
+        el.tooltip.classList.remove("visible");
+        updateVisualEmphasis();
+      }
+
+      function onNodePointerDown(node, ev) {
+        if (ev.button !== 0 && ev.pointerType === "mouse") return;
+        ev.stopPropagation();
+
+        state.draggingNode = node;
+        state.dragMoved = false;
+        state.dragStartClient = { x: ev.clientX, y: ev.clientY };
+
+        const g = domRefs.nodeGroups.get(node.id);
+        if (g) g.classList.add("dragging");
+
+        el.tooltip.classList.remove("visible");
+        if (ev.target.setPointerCapture) {
+          try { ev.target.setPointerCapture(ev.pointerId); } catch (_) {}
+        }
+      }
+
+      function onNodeDoubleClick(node) {
+        if (node.fx !== null) {
+          // Release pinned node
+          node.fx = null;
+          node.fy = null;
+          const g = domRefs.nodeGroups.get(node.id);
+          const pinDot = g && g.querySelector(".pin-dot");
+          if (pinDot) pinDot.style.display = "none";
+          reheat(0.35);
+          showToast(`Released "${node.id}"`);
+        } else {
+          selectNode(node.id, true);
+        }
+      }
+
+      function selectNode(nodeId, shouldFocus = false) {
+        if (!state.nodeMap.has(nodeId)) return;
+        state.selectedNodeId = nodeId;
+        state.selectedEdgeKey = null;
+        state.highlightedWorkId = null;
+        updateVisualEmphasis();
+        renderSidebarBody();
+
+        // Ensure sidebar is visible when inspecting a node
+        if (el.sidebar.classList.contains("collapsed")) {
+          el.sidebar.classList.remove("collapsed");
+        }
+        if (shouldFocus) {
+          focusNode(nodeId);
+        }
+      }
+
+      function selectEdge(edgeKey) {
+        if (!state.edgeMap.has(edgeKey)) return;
+        state.selectedEdgeKey = edgeKey;
+        state.selectedNodeId = null;
+        state.highlightedWorkId = null;
+        updateVisualEmphasis();
+        renderSidebarBody();
+
+        if (el.sidebar.classList.contains("collapsed")) {
+          el.sidebar.classList.remove("collapsed");
+        }
+      }
+
+      function clearSelection() {
+        state.selectedNodeId = null;
+        state.selectedEdgeKey = null;
+        state.highlightedWorkId = null;
+        updateVisualEmphasis();
+        renderSidebarBody();
+      }
+
+      function highlightWork(workId) {
+        if (state.highlightedWorkId === workId) {
+          state.highlightedWorkId = null;
+        } else {
+          state.highlightedWorkId = workId;
+          state.selectedNodeId = null;
+          state.selectedEdgeKey = null;
+        }
+        updateVisualEmphasis();
+        renderSidebarBody();
+      }
+
+      /* =======================================================================
+         10. SIDEBAR UI RENDERING (FILTERS, DASHBOARD, NODE & EDGE INSPECTORS)
+         ======================================================================= */
+      function renderCategoryPills() {
+        // Count works per category within current year filter
+        const catWorkCounts = {};
+        CATEGORY_ORDER.forEach((c) => (catWorkCounts[c] = 0));
+        WORKS.forEach((w) => {
+          if (w.year >= state.yearMin && w.year <= state.yearMax) {
+            catWorkCounts[w.category]++;
+          }
+        });
+
+        el.catPillsPrimary.innerHTML = "";
+        el.catPillsOptional.innerHTML = "";
+
+        CATEGORY_ORDER.forEach((catId) => {
+          const cat = CATEGORIES[catId];
+          const isActive = state.activeCategories.has(catId);
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = `cat-pill${isActive ? " active" : ""}`;
+          if (isActive) {
+            btn.style.background = cat.bg;
+            btn.style.borderColor = cat.border;
+          }
+          btn.innerHTML = `
+            <span class="dot" style="background:${cat.color};"></span>
+            <span>${escapeHtml(cat.label)}</span>
+            <span class="count">(${catWorkCounts[catId]})</span>
+          `;
+          btn.addEventListener("click", () => {
+            if (state.activeCategories.has(catId)) {
+              state.activeCategories.delete(catId);
+            } else {
+              state.activeCategories.add(catId);
+            }
+            refreshNetwork({ preservePositions: true, fitAfter: true });
+          });
+
+          if (cat.group === "primary") {
+            el.catPillsPrimary.appendChild(btn);
+          } else {
+            el.catPillsOptional.appendChild(btn);
+          }
+        });
+
+        // Update preset active highlight
+        const primarySet = ["journal", "chapter", "forthcoming", "nonrefereed"];
+        const isCoAuthorsOnly =
+          state.activeCategories.size === 4 &&
+          primarySet.every((c) => state.activeCategories.has(c));
+        const isAllCv = state.activeCategories.size === 6;
+
+        el.presetCoauthors.classList.toggle("active", isCoAuthorsOnly);
+        el.presetAll.classList.toggle("active", isAllCv);
+      }
+
+      function updateHeaderStats() {
+        const collabCount = state.nodes.filter((n) => !n.isHub).length;
+        const worksCount = state.visibleWorks.length;
+        const edgesCount = state.edges.length;
+
+        el.hdrCollabCount.textContent = String(collabCount);
+        el.hdrWorksCount.textContent = String(worksCount);
+        el.hdrEdgesCount.textContent = String(edgesCount);
+      }
+
+      function renderWorkCardHtml(work, clickable = false) {
+        const cat = CATEGORIES[work.category];
+        const isHighlighted = state.highlightedWorkId === work.id;
+        const yearText = work.displayYear || String(work.year);
+
+        const authorLinks = [CENTRAL_AUTHOR, ...work.authors]
+          .map((name) => {
+            const existsInGraph = state.nodeMap.has(name);
+            if (existsInGraph) {
+              return `<span class="work-author-link" data-author="${escapeHtml(name)}">${escapeHtml(name)}</span>`;
+            }
+            return `<span>${escapeHtml(name)}</span>`;
+          })
+          .join(", ");
+
+        return `
+          <article class="work-card${clickable ? " clickable" : ""}${isHighlighted ? " highlighted-work" : ""}"
+                   data-work-id="${work.id}"
+                   style="border-left-color:${cat.color};">
+            <div class="work-meta-top">
+              <span class="cat-badge" style="background:${cat.bg}; color:${cat.color}; border-color:${cat.border};">
+                ${escapeHtml(cat.short)}
+              </span>
+              <span class="work-year">${escapeHtml(yearText)}</span>
+            </div>
+            <div class="work-title">${escapeHtml(work.title)}</div>
+            <div class="work-venue">${escapeHtml(work.venue)}</div>
+            <div class="work-authors">${authorLinks}</div>
+          </article>
+        `;
+      }
+
+      function bindWorkCardEvents(container) {
+        container.querySelectorAll(".work-author-link").forEach((link) => {
+          link.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            const author = link.getAttribute("data-author");
+            if (author && state.nodeMap.has(author)) {
+              selectNode(author, true);
+            }
+          });
+        });
+
+        container.querySelectorAll(".work-card.clickable").forEach((card) => {
+          card.addEventListener("click", () => {
+            const id = Number(card.getAttribute("data-work-id"));
+            highlightWork(id);
+          });
+        });
+      }
+
+      function renderSidebarBody() {
+        // Case 1: Selected Node Profile Inspector
+        if (state.selectedNodeId && state.nodeMap.has(state.selectedNodeId)) {
+          const node = state.nodeMap.get(state.selectedNodeId);
+          const yearSpan =
+            node.years.length > 1
+              ? `${node.years[0]}–${node.years[node.years.length - 1]}`
+              : node.years[0] || "—";
+
+          const catBadges = Object.entries(node.catCounts)
+            .sort((a, b) => CATEGORIES[a[0]].priority - CATEGORIES[b[0]].priority)
+            .map(([catId, cnt]) => {
+              const cat = CATEGORIES[catId];
+              return `<span class="cat-badge" style="background:${cat.bg}; color:${cat.color}; border-color:${cat.border};">${cnt} ${escapeHtml(cat.short)}</span>`;
+            })
+            .join("");
+
+          // Co-collaborators in common (excluding Arun Jacob if already viewing co-author, or include Arun first)
+          const coCollabs = node.coCollaborators
+            .filter((name) => state.nodeMap.has(name))
+            .sort((a, b) => {
+              if (a === CENTRAL_AUTHOR) return -1;
+              if (b === CENTRAL_AUTHOR) return 1;
+              return state.nodeMap.get(b).workCount - state.nodeMap.get(a).workCount || a.localeCompare(b);
+            });
+
+          const chipsHtml = coCollabs
+            .map((name) => {
+              const cn = state.nodeMap.get(name);
+              return `
+                <button type="button" class="collab-chip" data-chip-author="${escapeHtml(name)}">
+                  <span class="chip-dot" style="background:${cn.color};"></span>
+                  <span>${escapeHtml(name)}</span>
+                </button>
+              `;
+            })
+            .join("");
+
+          const worksHtml = node.works.map((w) => renderWorkCardHtml(w, false)).join("");
+
+          const subtitle = node.isHub
+            ? `${CENTRAL_BIO} · ORCID: ${CENTRAL_ORCID}`
+            : `Collaborator · Active ${yearSpan}`;
+
+          el.sidebarBody.innerHTML = `
+            <div class="inspector-back-row">
+              <button type="button" id="btn-back-overview" class="back-btn">&larr; Overview</button>
+              <button type="button" id="btn-focus-selected" class="back-btn">Center on Graph</button>
+            </div>
+
+            <div class="profile-card">
+              <div class="profile-header">
+                <div class="profile-avatar" style="background:${node.color};">${escapeHtml(getInitials(node.id))}</div>
+                <div style="min-width:0;">
+                  <div class="profile-name">${escapeHtml(node.id)}</div>
+                  <div class="profile-sub">${escapeHtml(subtitle)}</div>
+                </div>
+              </div>
+              <div class="badge-row">${catBadges}</div>
+            </div>
+
+            <div class="mini-metrics">
+              <div class="mini-metric-card">
+                <div class="mini-metric-val">${node.workCount}</div>
+                <div class="mini-metric-lbl">${node.isHub ? "Visible Works" : "Shared Works"}</div>
+              </div>
+              <div class="mini-metric-card">
+                <div class="mini-metric-val">${coCollabs.length}</div>
+                <div class="mini-metric-lbl">${node.isHub ? "Collaborators" : "Connections"}</div>
+              </div>
+              <div class="mini-metric-card">
+                <div class="mini-metric-val" style="font-size:13.5px; padding-top:2px;">${escapeHtml(yearSpan)}</div>
+                <div class="mini-metric-lbl">Years</div>
+              </div>
+            </div>
+
+            ${
+              coCollabs.length > 0
+                ? `<div class="collab-chips-section">
+                     <div class="collab-chips-title">${node.isHub ? "Visible Collaborators" : "Collaborators in Common"} (${coCollabs.length})</div>
+                     <div class="collab-chips">${chipsHtml}</div>
+                   </div>`
+                : ""
+            }
+
+            <div class="collab-chips-title" style="margin-bottom:8px;">
+              ${node.isHub ? "All Visible Collaborative Works" : "Shared Works with Arun Jacob"} (${node.works.length})
+            </div>
+            <div class="works-list">${worksHtml}</div>
+          `;
+
+          document.getElementById("btn-back-overview").addEventListener("click", clearSelection);
+          document.getElementById("btn-focus-selected").addEventListener("click", () => focusNode(node.id));
+          el.sidebarBody.querySelectorAll("[data-chip-author]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              selectNode(btn.getAttribute("data-chip-author"), true);
+            });
+          });
+          bindWorkCardEvents(el.sidebarBody);
+          return;
+        }
+
+        // Case 2: Selected Edge Inspector
+        if (state.selectedEdgeKey && state.edgeMap.has(state.selectedEdgeKey)) {
+          const edge = state.edgeMap.get(state.selectedEdgeKey);
+          const worksHtml = edge.works.map((w) => renderWorkCardHtml(w, false)).join("");
+
+          el.sidebarBody.innerHTML = `
+            <div class="inspector-back-row">
+              <button type="button" id="btn-back-overview" class="back-btn">&larr; Overview</button>
+              <span style="font-size:11.5px; font-weight:600; color:var(--text-muted);">Connection Details</span>
+            </div>
+
+            <div class="profile-card edge-pair-card">
+              <div class="edge-pair-nodes">
+                <button type="button" class="edge-node-btn" data-jump="${escapeHtml(edge.sourceId)}">${escapeHtml(edge.sourceId)}</button>
+                <span class="edge-arrow">&harr;</span>
+                <button type="button" class="edge-node-btn" style="text-align:right;" data-jump="${escapeHtml(edge.targetId)}">${escapeHtml(edge.targetId)}</button>
+              </div>
+              <div style="font-size:12px; color:var(--text-secondary);">
+                Collaborated together on <strong>${edge.weight}</strong> visible ${edge.weight === 1 ? "work" : "works"}.
+              </div>
+            </div>
+
+            <div class="collab-chips-title" style="margin-bottom:8px;">Shared Works (${edge.works.length})</div>
+            <div class="works-list">${worksHtml}</div>
+          `;
+
+          document.getElementById("btn-back-overview").addEventListener("click", clearSelection);
+          el.sidebarBody.querySelectorAll("[data-jump]").forEach((btn) => {
+            btn.addEventListener("click", () => selectNode(btn.getAttribute("data-jump"), true));
+          });
+          bindWorkCardEvents(el.sidebarBody);
+          return;
+        }
+
+        // Case 3: Overview Dashboard (Default)
+        const collaborators = state.nodes
+          .filter((n) => !n.isHub)
+          .sort((a, b) => b.workCount - a.workCount || a.id.localeCompare(b.id));
+
+        const maxCount = collaborators.length > 0 ? collaborators[0].workCount : 1;
+
+        let tabContentHtml = "";
+        if (state.dashboardTab === "leaderboard") {
+          if (collaborators.length === 0) {
+            tabContentHtml = `<div style="text-align:center; color:var(--text-muted); padding:20px; font-size:12.5px;">No visible collaborators for current filters.</div>`;
+          } else {
+            const items = collaborators
+              .map((c, idx) => {
+                const pct = Math.max(8, Math.round((c.workCount / maxCount) * 100));
+                return `
+                  <div class="leader-item" data-leader-id="${escapeHtml(c.id)}">
+                    <div class="leader-top">
+                      <div class="leader-name-wrap">
+                        <span class="leader-rank">${idx + 1}.</span>
+                        <span class="leader-dot" style="background:${c.color};"></span>
+                        <span class="leader-name" title="${escapeHtml(c.id)}">${escapeHtml(c.id)}</span>
+                      </div>
+                      <span class="leader-count">${c.workCount}</span>
+                    </div>
+                    <div class="leader-bar-bg">
+                      <div class="leader-bar-fill" style="width:${pct}%; background:${c.color};"></div>
+                    </div>
+                  </div>
+                `;
+              })
+              .join("");
+            tabContentHtml = `<div class="leaderboard-list">${items}</div>`;
+          }
+        } else {
+          const sortedWorks = state.visibleWorks
+            .slice()
+            .sort((a, b) => b.year - a.year || CATEGORIES[a.category].priority - CATEGORIES[b.category].priority || a.id - b.id);
+
+          if (sortedWorks.length === 0) {
+            tabContentHtml = `<div style="text-align:center; color:var(--text-muted); padding:20px; font-size:12.5px;">No visible works for current filters.</div>`;
+          } else {
+            tabContentHtml = `
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">Click any work to highlight its co-author clique on the graph.</div>
+              <div class="works-list">${sortedWorks.map((w) => renderWorkCardHtml(w, true)).join("")}</div>
+            `;
+          }
+        }
+
+        el.sidebarBody.innerHTML = `
+          <div class="mini-metrics">
+            <div class="mini-metric-card">
+              <div class="mini-metric-val">${collaborators.length}</div>
+              <div class="mini-metric-lbl">Collaborators</div>
+            </div>
+            <div class="mini-metric-card">
+              <div class="mini-metric-val">${state.visibleWorks.length}</div>
+              <div class="mini-metric-lbl">Shared Works</div>
+            </div>
+            <div class="mini-metric-card">
+              <div class="mini-metric-val">${state.edges.length}</div>
+              <div class="mini-metric-lbl">Connections</div>
+            </div>
+          </div>
+
+          <div class="sub-tabs" role="tablist">
+            <button type="button" class="sub-tab-btn${state.dashboardTab === "leaderboard" ? " active" : ""}" data-tab="leaderboard">
+              Top Collaborators
+            </button>
+            <button type="button" class="sub-tab-btn${state.dashboardTab === "works" ? " active" : ""}" data-tab="works">
+              Visible Works (${state.visibleWorks.length})
+            </button>
+          </div>
+
+          ${tabContentHtml}
+        `;
+
+        el.sidebarBody.querySelectorAll("[data-tab]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            state.dashboardTab = btn.getAttribute("data-tab");
+            renderSidebarBody();
+          });
+        });
+
+        el.sidebarBody.querySelectorAll("[data-leader-id]").forEach((item) => {
+          item.addEventListener("click", () => {
+            selectNode(item.getAttribute("data-leader-id"), true);
+          });
+        });
+
+        bindWorkCardEvents(el.sidebarBody);
+      }
+
+      /* =======================================================================
+         11. SEARCH AUTOCOMPLETE & FILTERING
+         ======================================================================= */
+      function updateSearchResults() {
+        const q = state.searchQuery.trim().toLowerCase();
+        el.searchClear.classList.toggle("visible", q.length > 0);
+        updateVisualEmphasis();
+
+        if (!q) {
+          el.searchDropdown.classList.remove("open");
+          el.searchDropdown.innerHTML = "";
+          return;
+        }
+
+        const matchedNodes = state.nodes
+          .filter((n) => n.id.toLowerCase().includes(q))
+          .sort((a, b) => b.workCount - a.workCount)
+          .slice(0, 7);
+
+        const matchedWorks = state.visibleWorks
+          .filter((w) => w.title.toLowerCase().includes(q) || w.venue.toLowerCase().includes(q))
+          .slice(0, 5);
+
+        if (matchedNodes.length === 0 && matchedWorks.length === 0) {
+          el.searchDropdown.innerHTML = `<div class="search-result-item" style="color:var(--text-muted); cursor:default;">No visible matches for "${escapeHtml(state.searchQuery)}"</div>`;
+          el.searchDropdown.classList.add("open");
+          return;
+        }
+
+        let html = "";
+        matchedNodes.forEach((n) => {
+          html += `
+            <div class="search-result-item" data-search-node="${escapeHtml(n.id)}">
+              <div style="display:flex; align-items:center; gap:7px; min-width:0;">
+                <span style="width:8px; height:8px; border-radius:50%; background:${n.color}; flex-shrink:0;"></span>
+                <span style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(n.id)}</span>
+              </div>
+              <span class="search-result-meta">${n.workCount} ${n.workCount === 1 ? "work" : "works"}</span>
+            </div>
+          `;
+        });
+
+        matchedWorks.forEach((w) => {
+          const cat = CATEGORIES[w.category];
+          html += `
+            <div class="search-result-item" data-search-work="${w.id}">
+              <div style="min-width:0;">
+                <div style="font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(w.title)}</div>
+                <div style="font-size:10.5px; color:var(--text-muted);">${escapeHtml(cat.short)} · ${escapeHtml(w.displayYear || w.year)}</div>
+              </div>
+            </div>
+          `;
+        });
+
+        el.searchDropdown.innerHTML = html;
+        el.searchDropdown.classList.add("open");
+
+        el.searchDropdown.querySelectorAll("[data-search-node]").forEach((row) => {
+          row.addEventListener("click", () => {
+            const id = row.getAttribute("data-search-node");
+            el.searchDropdown.classList.remove("open");
+            selectNode(id, true);
+          });
+        });
+
+        el.searchDropdown.querySelectorAll("[data-search-work]").forEach((row) => {
+          row.addEventListener("click", () => {
+            const wid = Number(row.getAttribute("data-search-work"));
+            el.searchDropdown.classList.remove("open");
+            highlightWork(wid);
+          });
+        });
+      }
+
+      /* =======================================================================
+         12. SVG SNAPSHOT EXPORT
+         ======================================================================= */
+      function exportSvgSnapshot() {
+        try {
+          if (state.nodes.length === 0) {
+            showToast("No graph elements to export.");
+            return;
+          }
+
+          let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+          for (const n of state.nodes) {
+            minX = Math.min(minX, n.x - 110);
+            maxX = Math.max(maxX, n.x + 110);
+            minY = Math.min(minY, n.y - 50);
+            maxY = Math.max(maxY, n.y + 60);
+          }
+
+          const pad = 40;
+          const vbX = minX - pad;
+          const vbY = minY - pad - 36;
+          const vbW = maxX - minX + pad * 2;
+          const vbH = maxY - minY + pad * 2 + 36;
+
+          const clone = el.viewport.cloneNode(true);
+          clone.removeAttribute("transform");
+
+          const collabCount = state.nodes.filter((n) => !n.isHub).length;
+          const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX.toFixed(1)} ${vbY.toFixed(1)} ${vbW.toFixed(1)} ${vbH.toFixed(1)}" width="${Math.round(vbW)}" height="${Math.round(vbH)}">
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .node-label-bg { fill: rgba(255,255,255,0.92); stroke: #E2E8F0; stroke-width: 0.8px; }
+    .node-label-text { fill: #0F172A; }
+    .edge-hit { display: none; }
+    .dimmed { opacity: 0.14; }
+  </style>
+  <rect x="${vbX.toFixed(1)}" y="${vbY.toFixed(1)}" width="${vbW.toFixed(1)}" height="${vbH.toFixed(1)}" fill="#F8FAFC" />
+  <text x="${(vbX + 24).toFixed(1)}" y="${(vbY + 28).toFixed(1)}" font-size="16" font-weight="700" fill="#0F172A">Arun Jacob — Co-Author Network (${collabCount} Collaborators · ${state.visibleWorks.length} Works · ${state.yearMin}–${state.yearMax})</text>
+  ${clone.innerHTML}
+</svg>`;
+
+          const blob = new Blob([svgContent], { type: "image/svg+xml;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "arun-jacob-coauthor-network.svg";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showToast("Exported SVG snapshot");
+        } catch (err) {
+          showToast("Unable to export SVG in this environment.");
+        }
+      }
+
+      /* =======================================================================
+         13. MASTER REFRESH PIPELINE
+         ======================================================================= */
+      function refreshNetwork({ preservePositions = false, fitAfter = true } = {}) {
+        buildGraphData(preservePositions);
+        renderCategoryPills();
+        updateHeaderStats();
+        warmUpSimulation(preservePositions ? 35 : 85);
+        renderGraphElements();
+        renderSidebarBody();
+        if (fitAfter) {
+          fitToScreen(preservePositions);
+        }
+        startAnimationLoop();
+      }
+
+      /* =======================================================================
+         14. EVENT LISTENERS & INITIALIZATION
+         ======================================================================= */
+      function initYearSelectors() {
+        const years = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
+        el.yearMin.innerHTML = years.map((y) => `<option value="${y}">${y}</option>`).join("");
+        el.yearMax.innerHTML = years.map((y) => `<option value="${y}">${y}</option>`).join("");
+        el.yearMin.value = String(state.yearMin);
+        el.yearMax.value = String(state.yearMax);
+
+        function syncYearBadge() {
+          el.yearRangeBadge.textContent =
+            state.yearMin === state.yearMax
+              ? String(state.yearMin)
+              : `${state.yearMin} – ${state.yearMax}`;
+        }
+
+        el.yearMin.addEventListener("change", () => {
+          state.yearMin = Number(el.yearMin.value);
+          if (state.yearMin > state.yearMax) {
+            state.yearMax = state.yearMin;
+            el.yearMax.value = String(state.yearMax);
+          }
+          syncYearBadge();
+          refreshNetwork({ preservePositions: true, fitAfter: true });
+        });
+
+        el.yearMax.addEventListener("change", () => {
+          state.yearMax = Number(el.yearMax.value);
+          if (state.yearMax < state.yearMin) {
+            state.yearMin = state.yearMax;
+            el.yearMin.value = String(state.yearMin);
+          }
+          syncYearBadge();
+          refreshNetwork({ preservePositions: true, fitAfter: true });
+        });
+      }
+
+      function bindGlobalEvents() {
+        // Sidebar Toggle
+        el.btnToggleSidebar.addEventListener("click", () => {
+          el.sidebar.classList.toggle("collapsed");
+          setTimeout(() => fitToScreen(true), 240);
+        });
+
+        // Filters Accordion Toggle
+        function toggleAccordion() {
+          state.filtersExpanded = !state.filtersExpanded;
+          el.filtersBody.classList.toggle("hidden", !state.filtersExpanded);
+          el.filtersChevron.style.transform = state.filtersExpanded ? "rotate(0deg)" : "rotate(180deg)";
+        }
+        el.filtersToggle.addEventListener("click", toggleAccordion);
+        el.filtersToggle.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter" || ev.key === " ") {
+            ev.preventDefault();
+            toggleAccordion();
+          }
+        });
+
+        // Quick Presets
+        el.presetCoauthors.addEventListener("click", () => {
+          state.activeCategories = new Set(["journal", "chapter", "forthcoming", "nonrefereed"]);
+          state.yearMin = 2020;
+          state.yearMax = 2026;
+          el.yearMin.value = "2020";
+          el.yearMax.value = "2026";
+          el.yearRangeBadge.textContent = "2020 – 2026";
+          refreshNetwork({ preservePositions: false, fitAfter: true });
+          showToast("Showing Publication Co-Authors (38)");
+        });
+
+        el.presetAll.addEventListener("click", () => {
+          state.activeCategories = new Set(CATEGORY_ORDER);
+          state.yearMin = 2020;
+          state.yearMax = 2026;
+          el.yearMin.value = "2020";
+          el.yearMax.value = "2026";
+          el.yearRangeBadge.textContent = "2020 – 2026";
+          refreshNetwork({ preservePositions: false, fitAfter: true });
+          showToast("Showing All CV Collaborators (54)");
+        });
+
+        el.btnResetFilters.addEventListener("click", () => {
+          el.presetCoauthors.click();
+        });
+
+        // Graph Display Toggles
+        el.toggleHub.addEventListener("change", () => {
+          state.showHub = el.toggleHub.checked;
+          refreshNetwork({ preservePositions: false, fitAfter: true });
+        });
+
+        el.toggleCoAuthorLinks.addEventListener("change", () => {
+          state.showCoAuthorLinks = el.toggleCoAuthorLinks.checked;
+          refreshNetwork({ preservePositions: true, fitAfter: false });
+        });
+
+        el.toggleLabels.addEventListener("change", () => {
+          state.showAllLabels = el.toggleLabels.checked;
+          updateVisualEmphasis();
+        });
+
+        // Search Input
+        el.searchInput.addEventListener("input", () => {
+          state.searchQuery = el.searchInput.value;
+          updateSearchResults();
+        });
+
+        el.searchInput.addEventListener("focus", () => {
+          if (state.searchQuery.trim()) updateSearchResults();
+        });
+
+        el.searchInput.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter") {
+            const firstNode = el.searchDropdown.querySelector("[data-search-node]");
+            if (firstNode) {
+              firstNode.click();
+            }
+          } else if (ev.key === "Escape") {
+            el.searchDropdown.classList.remove("open");
+          }
+        });
+
+        el.searchClear.addEventListener("click", () => {
+          el.searchInput.value = "";
+          state.searchQuery = "";
+          updateSearchResults();
+          el.searchInput.focus();
+        });
+
+        document.addEventListener("click", (ev) => {
+          if (!ev.target.closest(".search-box")) {
+            el.searchDropdown.classList.remove("open");
+          }
+        });
+
+        // Highlight Banner Clear
+        el.highlightClearBtn.addEventListener("click", () => {
+          state.highlightedWorkId = null;
+          updateVisualEmphasis();
+          renderSidebarBody();
+        });
+
+        // Canvas Toolbar Buttons
+        el.btnZoomIn.addEventListener("click", () => zoomByFactor(1.25));
+        el.btnZoomOut.addEventListener("click", () => zoomByFactor(0.8));
+        el.btnFit.addEventListener("click", () => fitToScreen(true));
+        el.btnRelayout.addEventListener("click", () => {
+          refreshNetwork({ preservePositions: false, fitAfter: true });
+          showToast("Graph layout reset");
+        });
+        el.btnExportSvg.addEventListener("click", exportSvgSnapshot);
+
+        // SVG Pan, Zoom & Drag Handling
+        el.svg.addEventListener("wheel", (ev) => {
+          ev.preventDefault();
+          const factor = ev.deltaY < 0 ? 1.12 : 0.89;
+          zoomByFactor(factor, ev.clientX, ev.clientY);
+        }, { passive: false });
+
+        el.svg.addEventListener("pointerdown", (ev) => {
+          if (ev.target !== el.svg && ev.target.id !== "viewport") return;
+          if (ev.button !== 0 && ev.pointerType === "mouse") return;
+          state.isPanning = true;
+          state.targetTransform = null;
+          state.panStartClient = { x: ev.clientX, y: ev.clientY };
+          state.panStartTransform = { x: state.transform.x, y: state.transform.y };
+          el.svg.classList.add("panning");
+        });
+
+        window.addEventListener("pointermove", (ev) => {
+          if (state.draggingNode) {
+            const dx = ev.clientX - state.dragStartClient.x;
+            const dy = ev.clientY - state.dragStartClient.y;
+            if (!state.dragMoved && Math.hypot(dx, dy) > 4) {
+              state.dragMoved = true;
+            }
+            if (state.dragMoved) {
+              const pos = clientToGraph(ev.clientX, ev.clientY);
+              state.draggingNode.fx = pos.x;
+              state.draggingNode.fy = pos.y;
+              state.draggingNode.x = pos.x;
+              state.draggingNode.y = pos.y;
+              const g = domRefs.nodeGroups.get(state.draggingNode.id);
+              const pinDot = g && g.querySelector(".pin-dot");
+              if (pinDot) pinDot.style.display = "";
+              reheat(0.24);
+            }
+          } else if (state.isPanning) {
+            const dx = ev.clientX - state.panStartClient.x;
+            const dy = ev.clientY - state.panStartClient.y;
+            state.transform.x = state.panStartTransform.x + dx;
+            state.transform.y = state.panStartTransform.y + dy;
+            applyViewportTransform();
+          }
+        });
+
+        window.addEventListener("pointerup", (ev) => {
+          if (state.draggingNode) {
+            const node = state.draggingNode;
+            const moved = state.dragMoved;
+            const g = domRefs.nodeGroups.get(node.id);
+            if (g) g.classList.remove("dragging");
+
+            state.draggingNode = null;
+            state.dragMoved = false;
+
+            if (!moved) {
+              selectNode(node.id, false);
+            }
+          }
+          if (state.isPanning) {
+            const moved = Math.hypot(
+              ev.clientX - state.panStartClient.x,
+              ev.clientY - state.panStartClient.y
+            );
+            state.isPanning = false;
+            el.svg.classList.remove("panning");
+            if (moved < 4 && (state.selectedNodeId || state.selectedEdgeKey || state.highlightedWorkId)) {
+              clearSelection();
+            }
+          }
+        });
+
+        // Two-finger pinch zoom for touchscreens
+        el.svg.addEventListener("touchstart", (ev) => {
+          if (ev.touches.length === 2) {
+            state.isPanning = false;
+            const t1 = ev.touches[0];
+            const t2 = ev.touches[1];
+            state.pinchState = {
+              dist: Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY),
+              midX: (t1.clientX + t2.clientX) / 2,
+              midY: (t1.clientY + t2.clientY) / 2
+            };
+          }
+        }, { passive: true });
+
+        el.svg.addEventListener("touchmove", (ev) => {
+          if (ev.touches.length === 2 && state.pinchState) {
+            ev.preventDefault();
+            const t1 = ev.touches[0];
+            const t2 = ev.touches[1];
+            const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            const midX = (t1.clientX + t2.clientX) / 2;
+            const midY = (t1.clientY + t2.clientY) / 2;
+            const factor = dist / Math.max(1, state.pinchState.dist);
+            zoomByFactor(factor, midX, midY);
+            state.pinchState = { dist, midX, midY };
+          }
+        }, { passive: false });
+
+        el.svg.addEventListener("touchend", () => {
+          state.pinchState = null;
+        });
+
+        // Responsive resize handling
+        let resizeTimer = null;
+        window.addEventListener("resize", () => {
+          clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(() => {
+            fitToScreen(true);
+          }, 160);
+        });
+      }
+
+      /* =======================================================================
+         15. BOOTSTRAP IMMEDIATELY ON LOAD
+         ======================================================================= */
+      function init() {
+        // Collapse sidebar by default on narrow mobile screens so graph is immediately visible
+        if (window.innerWidth <= 900) {
+          el.sidebar.classList.add("collapsed");
+        }
+        initYearSelectors();
+        bindGlobalEvents();
+        refreshNetwork({ preservePositions: false, fitAfter: true });
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+</body>
+</html>
